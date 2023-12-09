@@ -29,14 +29,17 @@ import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.TaskAlt
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -49,6 +52,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.tooling.preview.Preview
@@ -68,7 +72,7 @@ class HabitsActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    Habits()
+                    Habits(generateHabitList(5))
                 }
             }
         }
@@ -76,36 +80,122 @@ class HabitsActivity : ComponentActivity() {
 }
 
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-@Preview
-fun Habits(modifier: Modifier = Modifier) {
+fun Habits(habitList: List<HabitView>, modifier: Modifier = Modifier) {
+    var showDialog by remember { mutableStateOf(false) }
+    var habitTitle by remember { mutableStateOf(TextFieldValue()) }
+    var reminder by remember { mutableStateOf(false) }
+    var reminderTime by remember { mutableStateOf<String?>(null) }
+    var habits by remember { mutableStateOf<MutableList<HabitView>>(habitList.toMutableList()) }
+
+    if (showDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showDialog = false
+                habitTitle = TextFieldValue() // Reset form state
+                reminder = false // Reset reminder state
+                reminderTime = null // Reset selected time state
+            },
+            title = {
+                Text(text = "Add New Habit")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        habits.add(HabitView(Random.nextInt(),habitTitle.text,reminder,reminderTime))
+                        showDialog = false
+                        habitTitle = TextFieldValue() // Reset form state
+                        reminder = false // Reset reminder state
+                        reminderTime = null // Reset selected time state
+                    }
+                ) {
+                    Text(text = "Add")
+                }
+            },
+            dismissButton = {
+                Button(
+                    onClick = {
+                        showDialog = false
+                        habitTitle = TextFieldValue() // Reset form state
+                        reminder = false // Reset reminder state
+                        reminderTime = null // Reset selected time state
+                    }
+                ) {
+                    Text(text = "Cancel")
+                }
+            },
+            text = {
+                Column {
+                    TextField(
+                        value = habitTitle,
+                        onValueChange = { habitTitle = it },
+                        label = { Text("Habit Name") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = reminder,
+                            onCheckedChange = { reminder = it },
+                            modifier = Modifier.padding(end = 8.dp)
+                        )
+                        Text(
+                            text = "Remind Me",
+                            fontSize = 18.sp
+                        )
+                    }
+
+                    // Adjust the layout here to ensure proper visibility of components
+                    if (reminder) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        TimePickerDialogComponent(
+                            selectedTime = reminderTime,
+                            onTimeSelected = { reminderTime = it }
+                        )
+                    } else {
+                        // Add an empty box to reserve space when reminder is false
+                        Spacer(modifier = Modifier.height(50.dp))
+                    }
+                }
+            }
+        )
+    }
     Column(
         modifier = modifier.fillMaxSize()
     ) {
-        Header("Habits",5,"Habits")
+        Header("Habits",5,"Habits",{showDialog = true})
         Box(
             modifier = Modifier
                 .weight(1f)
         ) {
-            HabitContent( generateHabitList(15))
+            HabitContent( habits,{ deletedHabit ->
+                habits = habits.filterNot { it == deletedHabit }.toMutableList()
+            })
         }
         Navbar(1)
     }
 }
 
 @Composable
-fun HabitContent(habitList : List<HabitView>,modifier: Modifier = Modifier){
-    var habits by remember { mutableStateOf(habitList) }
+fun HabitContent(habitList : List<HabitView>,
+                 onDeleteHabit : (deletedHabit:HabitView) -> Unit,
+                 modifier: Modifier = Modifier){
     LazyColumn(
         modifier = Modifier
             .fillMaxWidth()
             .padding(20.dp)
     ) {
-        items(habits) { habit ->
+        items(habitList) { habit ->
             HabitItem(
                 habit = habit,
                 onDelete = { deletedHabit ->
-                    habits = habits.filterNot { it == deletedHabit }
+                    onDeleteHabit(deletedHabit)
                 })
         }
     }
@@ -152,11 +242,15 @@ fun generateHabitList(size: Int): List<HabitView> {
         val titleIndex = Random.nextInt(titles.size)
         HabitView(
             id = id++,
-            title = titles[titleIndex]
+            title = titles[titleIndex],
+            reminder = Random.nextBoolean(),
+            reminderTime = "10.00"
         )
     }
 }
 data class HabitView(
     val id: Int,
-    val title : String
+    val title : String,
+    val reminder : Boolean,
+    val reminderTime : String?
 )

@@ -107,8 +107,8 @@ fun WhatToDoAppTask(taskDBHelper : TaskDBHelper,
                 Button(
                     onClick = {
                         val task = Task(Random.nextInt(),taskTitle.text,false, reminder,reminderTime,false, notificationId)
+                        task.id = taskDBHelper.addTask(task).toInt()
                         tasks.add(task)
-                        taskDBHelper.addTask(task)
                         if (reminder) whatToDoNotificationService.scheduleNotification(taskTitle.text,reminderTime,notificationId)
                         showDialog = false
                         taskTitle = TextFieldValue()

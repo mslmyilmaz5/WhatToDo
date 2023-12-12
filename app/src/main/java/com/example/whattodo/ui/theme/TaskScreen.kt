@@ -1,8 +1,8 @@
 package com.example.whattodo.ui.theme
 
+import TaskDBHelper
 import android.app.TimePickerDialog
 import android.content.Intent
-import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -38,7 +38,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -55,14 +54,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.datastore.preferences.protobuf.Empty
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.whattodo.HabitsActivity
 import com.example.whattodo.MainActivity
 import com.example.whattodo.WhatToDoNotificationService
-import com.example.whattodo.data.UserTasksRepository
 import com.example.whattodo.model.Task
-import kotlinx.coroutines.flow.StateFlow
 import java.util.Calendar
 import kotlin.random.Random
 
@@ -87,7 +82,7 @@ fun loadApp(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun WhatToDoAppTask(taskList : List<Task>,
+fun WhatToDoAppTask(taskDBHelper : TaskDBHelper,
                     whatToDoNotificationService: WhatToDoNotificationService,
                     modifier: Modifier = Modifier,) {
     var showDialog by remember { mutableStateOf(false) }
@@ -95,12 +90,7 @@ fun WhatToDoAppTask(taskList : List<Task>,
     var reminder by remember { mutableStateOf(false) }
     var reminderTime by remember { mutableStateOf<String?>(null) }
     var notificationId by remember { mutableStateOf(Random.nextInt()) }
-    var tasks by remember { mutableStateOf<MutableList<Task>>(taskList.toMutableList()) }
-    var whatToDoViewModel: WhatToDoViewModel = viewModel(
-        factory = WhatToDoViewModel.Factory)
-
-    var task = whatToDoViewModel.taskObject.collectAsState().value
-    Log.d("AllTasks", "All tasks: $task")
+    var tasks by remember { mutableStateOf<MutableList<Task>>(taskDBHelper.getAllTasks().toMutableList()) }
 
     if (showDialog) {
         AlertDialog(
@@ -116,9 +106,9 @@ fun WhatToDoAppTask(taskList : List<Task>,
             confirmButton = {
                 Button(
                     onClick = {
-
-                        tasks.add(Task(Random.nextInt(),taskTitle.text,false, reminder,reminderTime,false, notificationId))
-                        whatToDoViewModel.saveTask(Task(Random.nextInt(),taskTitle.text,false, reminder,reminderTime,false, notificationId))
+                        val task = Task(Random.nextInt(),taskTitle.text,false, reminder,reminderTime,false, notificationId)
+                        tasks.add(task)
+                        taskDBHelper.addTask(task)
                         if (reminder) whatToDoNotificationService.scheduleNotification(taskTitle.text,reminderTime,notificationId)
                         showDialog = false
                         taskTitle = TextFieldValue()
@@ -205,6 +195,7 @@ fun WhatToDoAppTask(taskList : List<Task>,
         ) {
             Content(tasks,{ deletedTask ->
                 tasks = tasks.filterNot { it == deletedTask }.toMutableList()
+                taskDBHelper.deleteTask(deletedTask.id)
             })
         }
         Navbar(0)

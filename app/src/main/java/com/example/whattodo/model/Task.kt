@@ -1,6 +1,5 @@
 package com.example.whattodo.model
 
-
 data class Task(
     val id: Int,
     val title: String,
@@ -9,9 +8,7 @@ data class Task(
     val reminderTime: String?,
     val photo: Boolean,
     val notificationId: Int
-){
-
-}
+)
 
 
 

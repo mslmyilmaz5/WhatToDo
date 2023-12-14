@@ -1,6 +1,6 @@
 package com.example.whattodo.ui.theme
 
-import TaskDBHelper
+import DatabaseHelper
 import android.app.TimePickerDialog
 import android.content.Intent
 import android.util.Log
@@ -67,6 +67,8 @@ import androidx.compose.ui.unit.sp
 import com.example.whattodo.HabitsActivity
 import com.example.whattodo.MainActivity
 import com.example.whattodo.WhatToDoNotificationService
+import com.example.whattodo.model.Habit
+
 import com.example.whattodo.model.Task
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -77,7 +79,7 @@ import kotlin.random.Random
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun WhatToDoAppTask(taskDBHelper : TaskDBHelper,
+fun WhatToDoAppTask(databaseHelper: DatabaseHelper,
                     whatToDoNotificationService: WhatToDoNotificationService,
                     modifier: Modifier = Modifier,) {
     var showDialog by remember { mutableStateOf(false) }
@@ -85,8 +87,8 @@ fun WhatToDoAppTask(taskDBHelper : TaskDBHelper,
     var reminder by remember { mutableStateOf(false) }
     var reminderTime by remember { mutableStateOf<String?>(null) }
     var notificationId by remember { mutableStateOf(Random.nextInt()) }
-    var tasks by remember { mutableStateOf<MutableList<Task>>(taskDBHelper.getAllTasks().toMutableList()) }
-
+    var tasks by remember { mutableStateOf<MutableList<Task>>(databaseHelper.getAllTasks().toMutableList()) }
+    var habits by remember { mutableStateOf<MutableList<Habit>>(databaseHelper.getAllHabits().toMutableList()) }
 
     for (task in tasks) {
         Log.d("Task Reminder Status", task.reminder.toString())
@@ -110,7 +112,7 @@ fun WhatToDoAppTask(taskDBHelper : TaskDBHelper,
                             reminder = false
                         }
                         val task = Task(Random.nextInt(),taskTitle.text,false, reminder,reminderTime,false, notificationId)
-                        task.id = taskDBHelper.addTask(task).toInt()
+                        task.id = databaseHelper.addTask(task).toInt()
                         tasks.add(task)
                         if (reminder) whatToDoNotificationService.scheduleNotification(taskTitle.text,reminderTime,notificationId)
                         showDialog = false
@@ -190,7 +192,7 @@ fun WhatToDoAppTask(taskDBHelper : TaskDBHelper,
         modifier = modifier.fillMaxSize()
     ) {
 
-        Header("Today",tasks.size,"Tasks",{ showDialog = true})
+        Header(tasks.size,"Tasks",{ showDialog = true})
         Box(
             modifier = Modifier
                 .weight(1f)
@@ -209,7 +211,7 @@ fun WhatToDoAppTask(taskDBHelper : TaskDBHelper,
             Content(tasks,{ deletedTask ->
                 whatToDoNotificationService.cancelNotification(deletedTask.notificationId)
                 tasks = tasks.filterNot { it == deletedTask }.toMutableList()
-                taskDBHelper.deleteTask(deletedTask.id)
+                databaseHelper.deleteTask(deletedTask.id)
             })
         }
         Navbar(0)
@@ -217,8 +219,7 @@ fun WhatToDoAppTask(taskDBHelper : TaskDBHelper,
 }
 
 @Composable
-fun Header(title: String,
-           count : Int,tasksOrHabits : String,
+fun Header(count : Int,tasksOrHabits : String,
            onAddNewClicked: () -> Unit,
            modifier: Modifier = Modifier){
     Column(modifier = modifier
@@ -290,13 +291,13 @@ fun Content(taskList : List<Task>,
             .fillMaxWidth()
             .padding(10.dp)
     ) {
-        items(taskList) { task ->
+        items(taskList) { task->
             TaskItem(
                 task = task,
                 onDelete = { deletedTask ->
                     onDeleteTask(deletedTask)
                 },
-                dbHelper = TaskDBHelper(context),
+                dbHelper = DatabaseHelper(context),
                 whatToDoNotificationService = WhatToDoNotificationService(context,"WhatToDo_Notification")
             )
         }
@@ -377,15 +378,13 @@ fun TaskItem(
     task: Task,
     onDelete: (Task) -> Unit,
     modifier: Modifier = Modifier,
-    dbHelper: TaskDBHelper,
+    dbHelper: DatabaseHelper,
     whatToDoNotificationService: WhatToDoNotificationService,
     ) {
     var expanded by remember { mutableStateOf(false) }
     var showDialog by remember { mutableStateOf(false) }
     var isTaskDone by remember { mutableStateOf(task.isDone) }
     var photoString by remember { mutableStateOf("") }
-
-
 
     Card(
         modifier = modifier.padding(bottom = 20.dp)
@@ -436,16 +435,14 @@ fun TaskItem(
                     .clickable {
                         if (!task.reminder && task.reminderTime == null) {
                             showDialog = true
-                        }
-                        else if (!task.reminder && task.reminderTime != null) {
+                        } else if (!task.reminder && task.reminderTime != null) {
                             whatToDoNotificationService.scheduleNotification(
                                 task.title,
                                 task.reminderTime,
                                 task.notificationId
                             )
                             AlarmIcon = Icons.Default.AlarmOn
-                        }
-                        else {
+                        } else {
                             whatToDoNotificationService.cancelNotification(task.notificationId)
                             AlarmIcon = Icons.Default.AlarmOff
                         }

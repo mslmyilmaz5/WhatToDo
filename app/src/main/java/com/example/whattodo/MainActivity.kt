@@ -4,7 +4,8 @@ package com.example.whattodo
 
 
 
-import TaskDBHelper
+import DatabaseHelper
+
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -15,6 +16,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+
 import com.example.whattodo.ui.theme.WhatToDoTheme
 import com.example.whattodo.ui.theme.WhatToDoAppTask
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
@@ -43,8 +45,8 @@ class MainActivity : ComponentActivity() {
                     color = Color(0xFF4044C9)
                 ) {
                     setNotifications() // bu gercekten lazım mı bakmak lazım !!
-                    val taskDBHelper = TaskDBHelper(this)
-                    WhatToDoAppTask(taskDBHelper,whatToDoNotificationService)
+                    val databaseHelper = DatabaseHelper(this)
+                    WhatToDoAppTask(databaseHelper,whatToDoNotificationService)
                 }
             }
         }

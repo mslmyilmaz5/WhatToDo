@@ -1,15 +1,18 @@
 package com.example.whattodo
 
+import DatabaseHelper
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
+
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+
 import com.example.whattodo.ui.theme.WhatToDoAppHabit
 import com.example.whattodo.ui.theme.WhatToDoTheme
-import com.example.whattodo.ui.theme.generateHabitList
+
 
 
 class HabitsActivity : ComponentActivity() {
@@ -20,9 +23,10 @@ class HabitsActivity : ComponentActivity() {
                 // A surface container using the 'background' color from the theme
                 Surface(
                     modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
+                    color = Color(0xFF4044C9)
                 ) {
-                    WhatToDoAppHabit(generateHabitList(5))
+                    val databaseHelper = DatabaseHelper(this)
+                    WhatToDoAppHabit(databaseHelper)
                 }
             }
         }

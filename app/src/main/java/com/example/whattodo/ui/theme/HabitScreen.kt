@@ -1,5 +1,6 @@
 package com.example.whattodo.ui.theme
 
+import DatabaseHelper
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
@@ -31,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -40,12 +43,13 @@ import kotlin.random.Random
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 
-fun WhatToDoAppHabit(habitList: List<Habit>, modifier: Modifier = Modifier) {
+fun WhatToDoAppHabit(databaseHelper: DatabaseHelper,
+                     modifier: Modifier = Modifier) {
     var showDialog by remember { mutableStateOf(false) }
     var habitTitle by remember { mutableStateOf(TextFieldValue()) }
     var reminder by remember { mutableStateOf(false) }
     var reminderTime by remember { mutableStateOf<String?>(null) }
-    var habits by remember { mutableStateOf<MutableList<Habit>>(habitList.toMutableList()) }
+    var habits by remember { mutableStateOf<MutableList<Habit>>(databaseHelper.getAllHabits().toMutableList()) }
 
     if (showDialog) {
         AlertDialog(
@@ -61,7 +65,9 @@ fun WhatToDoAppHabit(habitList: List<Habit>, modifier: Modifier = Modifier) {
             confirmButton = {
                 Button(
                     onClick = {
-                        habits.add(Habit(Random.nextInt(),habitTitle.text,reminder,reminderTime))
+                        val habit = Habit(Random.nextInt(),habitTitle.text,reminder,reminderTime)
+                        habit.id = databaseHelper.addHabit(habit).toInt()
+                        habits.add(habit)
                         showDialog = false
                         habitTitle = TextFieldValue() // Reset form state
                         reminder = false // Reset reminder state
@@ -126,13 +132,23 @@ fun WhatToDoAppHabit(habitList: List<Habit>, modifier: Modifier = Modifier) {
     Column(
         modifier = modifier.fillMaxSize()
     ) {
-        Header("Habits",5,"Habits",{showDialog = true})
+        Header(habits.size,"Habits",{showDialog = true})
         Box(
             modifier = Modifier
                 .weight(1f)
+                .background(
+                    Color.White,
+                    shape = RoundedCornerShape(
+                        topStart = 45.dp,
+                        topEnd = 45.dp,
+                        bottomStart = 0.dp,
+                        bottomEnd = 0.dp
+                    )
+                )
         ) {
             HabitContent( habits,{ deletedHabit ->
                 habits = habits.filterNot { it == deletedHabit }.toMutableList()
+                databaseHelper.deleteHabit(deletedHabit.id)
             })
         }
         Navbar(1)
@@ -173,13 +189,16 @@ fun HabitItem(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(Color(0xFFF1F1F1))
-                .padding(top = 10.dp, bottom = 10.dp)
+                .padding(top = 15.dp, bottom = 10.dp)
         ) {
             Text(
                 text = habit.title,
-                fontFamily = FontFamily.Serif,
+                fontFamily = FontFamily.Monospace,
                 fontSize = 18.sp,
-                modifier = Modifier.padding(start = 20.dp)
+                fontWeight = FontWeight.Bold,
+                color = Color.Black,
+                modifier = Modifier.padding(start = 16.dp)
+
             )
             Spacer(modifier = Modifier.weight(1f))
             Icon(
@@ -193,16 +212,3 @@ fun HabitItem(
     }
 }
 
-fun generateHabitList(size: Int): List<Habit> {
-    var id = 0
-    val titles = listOf("Daily Workout", "Meeting", "Study Session", "Walk the Dog", "Shopping")
-    return List(size) {
-        val titleIndex = Random.nextInt(titles.size)
-        Habit(
-            id = id++,
-            title = titles[titleIndex],
-            reminder = Random.nextBoolean(),
-            reminderTime = "10.00"
-        )
-    }
-}

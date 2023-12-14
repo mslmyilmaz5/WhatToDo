@@ -133,6 +133,37 @@ class TaskDBHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, 
         db.close()
         return task
     }
-    // Implement other methods like updateTask(), deleteTask(), etc. based on your requirements
-    // Remember to handle exceptions and close the database properly
+
+    fun changeReminder(taskId: Int, newReminderStatus: Boolean): Boolean {
+        val db = this.writableDatabase
+        val contentValues = ContentValues()
+        contentValues.put(COLUMN_REMINDER, if (newReminderStatus) 1 else 0)
+
+        val whereClause = "$COLUMN_ID = ?"
+        val whereArgs = arrayOf(taskId.toString())
+
+        val updatedRows = db.update(TABLE_NAME, contentValues, whereClause, whereArgs)
+
+        db.close()
+
+        return updatedRows > 0
+    }
+
+    fun changeIsDone(taskId: Int, newIsDoneStatus: Boolean): Boolean {
+        val db = this.writableDatabase
+        val contentValues = ContentValues()
+        contentValues.put(COLUMN_IS_DONE, if (newIsDoneStatus) 1 else 0)
+
+        val whereClause = "$COLUMN_ID = ?"
+        val whereArgs = arrayOf(taskId.toString())
+
+        val updatedRows = db.update(TABLE_NAME, contentValues, whereClause, whereArgs)
+
+        db.close()
+
+        return updatedRows > 0
+    }
+
+
+
 }

@@ -3,11 +3,20 @@ package com.example.whattodo.ui.theme
 import TaskDBHelper
 import android.app.TimePickerDialog
 import android.content.Intent
+import android.graphics.drawable.Icon
+import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,26 +26,35 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AddTask
 import androidx.compose.material.icons.filled.Alarm
+import androidx.compose.material.icons.filled.AlarmOff
+import androidx.compose.material.icons.filled.AlarmOn
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.TaskAlt
+import androidx.compose.material.icons.sharp.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
+import androidx.compose.material3.rememberDismissState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -44,39 +62,35 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.consumeAllChanges
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.whattodo.HabitsActivity
 import com.example.whattodo.MainActivity
 import com.example.whattodo.WhatToDoNotificationService
 import com.example.whattodo.model.Task
+import java.text.SimpleDateFormat
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import java.util.Calendar
+import java.util.Locale
+import kotlin.math.roundToInt
 import kotlin.random.Random
-
-
-/*
-@Composable
-fun loadApp(
-    whatToDoViewModel: WhatToDoViewModel = viewModel(
-        factory = WhatToDoViewModel.Factory
-    )
-){
-   // burda WhatToAppTask içerisinde taskList parametresi gönderilecek.
-}
-*/
-
-
-
-
-
 
 
 
@@ -91,6 +105,11 @@ fun WhatToDoAppTask(taskDBHelper : TaskDBHelper,
     var reminderTime by remember { mutableStateOf<String?>(null) }
     var notificationId by remember { mutableStateOf(Random.nextInt()) }
     var tasks by remember { mutableStateOf<MutableList<Task>>(taskDBHelper.getAllTasks().toMutableList()) }
+
+
+    for (task in tasks) {
+        Log.d("Task Reminder Status", task.reminder.toString())
+    }
 
     if (showDialog) {
         AlertDialog(
@@ -188,12 +207,24 @@ fun WhatToDoAppTask(taskDBHelper : TaskDBHelper,
         modifier = modifier.fillMaxSize()
     ) {
 
-        Header("Today",8,"Tasks",{ showDialog = true})
+        Header("Today",tasks.size,"Tasks",{ showDialog = true})
         Box(
             modifier = Modifier
                 .weight(1f)
+                .background(
+                    Color.White,
+                    shape = RoundedCornerShape(
+                        topStart = 45.dp,
+                        topEnd = 45.dp,
+                        bottomStart = 0.dp,
+                        bottomEnd = 0.dp
+                    )
+                )
+
+
         ) {
             Content(tasks,{ deletedTask ->
+                whatToDoNotificationService.cancelNotification(deletedTask.notificationId)
                 tasks = tasks.filterNot { it == deletedTask }.toMutableList()
                 taskDBHelper.deleteTask(deletedTask.id)
             })
@@ -203,58 +234,65 @@ fun WhatToDoAppTask(taskDBHelper : TaskDBHelper,
 }
 
 @Composable
-fun Header(title: String,count : Int,tasksOrHabits : String,
-           onAddNewClicked: () -> Unit,modifier: Modifier = Modifier){
-    Column(Modifier.background(Color(0xFF4044C9))) {
+fun Header(title: String,
+           count : Int,tasksOrHabits : String,
+           onAddNewClicked: () -> Unit,
+           modifier: Modifier = Modifier){
+    Column(modifier = modifier
+        .background(Color(0xFF4044C9))
+        .padding(16.dp)
+        ) {
+
+
+        val calendar = Calendar.getInstance()
+        val formattedDate = SimpleDateFormat("d MMMM", Locale.getDefault()).format(calendar.time)
         Row{
             Text(
+
                 text = "WhatToDo",
                 color = Color.White,
-                fontSize = 20.sp,
-                fontFamily = FontFamily.Serif,
+                fontSize = 25.sp,
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.Bold,
                 modifier = Modifier
                     .weight(1f)
-                    .padding(20.dp))
+                    .padding(7.dp))
             Text(
-                text = "5 May",
+                text = formattedDate,
                 color = Color.White,
                 textAlign = TextAlign.Right,
-                fontFamily = FontFamily.Serif,
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.Bold,
                 fontSize = 20.sp,
                 modifier = Modifier
                     .weight(1f)
-                    .padding(20.dp))
+                    .padding(10.dp))
         }
         Row(verticalAlignment = Alignment.Bottom){
             Column(modifier = Modifier
                 .weight(1f)
-                .padding(start = 20.dp, bottom = 20.dp)){
-                Text(
-                    text = "$title",
-                    color = Color.White,
-                    fontFamily = FontFamily.Serif,
-                    fontSize = 30.sp)
+                .padding(start = 10.dp, bottom = 10.dp)){
+
                 Text(
                     text = "$count $tasksOrHabits",
-                    color = Color(0xFFA9A9A9),
+                    color = Color.White,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp,
                     modifier = Modifier.padding(start = 10.dp))
             }
-            Button(
-                onClick = { onAddNewClicked() },
-                shape = RoundedCornerShape(size=15.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.White,
-                    contentColor = Color(0xFF4044C9)
-                ),
+
+            Icon(
+                imageVector = Icons.Default.AddTask,
+                contentDescription = "Photograph",
                 modifier = Modifier
-                    .weight(0.7f)
-                    .padding(end = 20.dp, bottom = 20.dp)
-                    .height(IntrinsicSize.Min)) {
-                Text(
-                    text = "Add New",
-                    fontSize = 18.sp
-                )
-            }
+                    .padding(end = 15.dp)
+                    .size(40.dp)
+                    .clickable { onAddNewClicked() }
+
+
+            )
+
         }
     }
 }
@@ -262,18 +300,21 @@ fun Header(title: String,count : Int,tasksOrHabits : String,
 fun Content(taskList : List<Task>,
             onDeleteTask : (deletedTask : Task)->Unit ,
             modifier: Modifier = Modifier){
+
+    val context = LocalContext.current
     LazyColumn(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(20.dp)
+            .padding(10.dp)
     ) {
         items(taskList) { task ->
             TaskItem(
                 task = task,
                 onDelete = { deletedTask ->
                     onDeleteTask(deletedTask)
-
-                }
+                },
+                dbHelper = TaskDBHelper(context),
+                whatToDoNotificationService = WhatToDoNotificationService(context,"WhatToDo_Notification")
             )
         }
     }
@@ -301,7 +342,7 @@ fun Navbar(focus : Int,modifier: Modifier = Modifier){
             },
             shape = RoundedCornerShape(size = 15.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = Color.White,
+                containerColor = if (focus == 0) Color.White else Color.LightGray,
                 contentColor = Color(0xFF4044C9)
             ),
             modifier = Modifier
@@ -310,18 +351,11 @@ fun Navbar(focus : Int,modifier: Modifier = Modifier){
                 .height(50.dp)
         ) {
             Row{
-                Icon(
-                    imageVector = Icons.Default.TaskAlt,
-                    contentDescription = "Tasks",
-                    Modifier.padding(end = 5.dp)
-                )
+
                 Text(
                     text = "TASKS",
                     fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp,
-                    style = TextStyle(
-                        textDecoration = if (focus == 0) TextDecoration.Underline else TextDecoration.None
-                    )
+                    fontSize = 13.sp,
                 )
             }
         }
@@ -334,7 +368,7 @@ fun Navbar(focus : Int,modifier: Modifier = Modifier){
             },
             shape = RoundedCornerShape(size = 15.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = Color.White,
+                containerColor = if (focus != 0) Color.White else Color.LightGray,
                 contentColor = Color(0xFF4044C9)
             ),
             modifier = Modifier
@@ -343,18 +377,12 @@ fun Navbar(focus : Int,modifier: Modifier = Modifier){
                 .height(50.dp)
         ) {
             Row{
-                Icon(
-                    imageVector = Icons.Default.Checklist,
-                    contentDescription = "Habits",
-                    Modifier.padding(end = 5.dp)
-                )
+
                 Text(
                     text = "HABITS",
                     fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp,
-                    style = TextStyle(
-                        textDecoration = if (focus != 0) TextDecoration.Underline else TextDecoration.None
-                    )
+                    fontSize = 13.sp,
+
                 )
             }
         }
@@ -366,42 +394,118 @@ fun TaskItem(
     task: Task,
     onDelete: (Task) -> Unit,
     modifier: Modifier = Modifier,
-
+    dbHelper: TaskDBHelper,
+    whatToDoNotificationService: WhatToDoNotificationService,
     ) {
     var expanded by remember { mutableStateOf(false) }
+    var showDialog by remember { mutableStateOf(false) }
+    var isTaskDone by remember { mutableStateOf(task.isDone) }
+    var photoString by remember { mutableStateOf("") }
+
+
+
     Card(
         modifier = modifier.padding(bottom = 20.dp)
     ) {
+        var cardColor by remember { mutableStateOf(if (task.isDone) Color(0xFF4044C9) else Color(0xFFF1F1F1)) }
+
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color(0xFFF1F1F1))
-                .padding(top = 10.dp, bottom = 10.dp)
+                .background(cardColor)
+                .padding(top = 15.dp, bottom = 10.dp)
         ) {
-            Checkbox(checked = task.isDone, onCheckedChange = { /*TODO*/ })
+            Checkbox(checked = isTaskDone,
+                     onCheckedChange = {
+                    isTaskDone = it
+                    task.isDone = it
+                    if (task.isDone) {
+                        expanded = true
+                        cardColor = Color(0xFF4044C9)
+                    }
+                    if (!task.isDone){
+                        expanded = false
+                        cardColor = Color(0xFFF1F1F1)
+                    }
+
+                    dbHelper.changeIsDone(task.id,task.isDone) },
+
+            )
             Text(
                 text = task.title,
-                fontFamily = FontFamily.Serif,
-                fontSize = 18.sp
+                fontFamily = FontFamily.Monospace,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.Black
             )
             Spacer(modifier = Modifier.weight(1f))
+
+            var AlarmIcon by remember {mutableStateOf(Icons.Default.AlarmOff)}
+            if (task.reminder) AlarmIcon = Icons.Default.AlarmOn
+
             Icon(
-                imageVector = Icons.Default.Alarm,
-                tint = if (task.reminder) Color.Black else Color.Gray,
+                imageVector = AlarmIcon,
+                tint = Color.Black,
                 contentDescription = "Reminder Status",
                 modifier = Modifier
                     .padding(end = 5.dp)
-                    .clickable { { /*TODO*/ } }
+                    .clickable {
+                        if (!task.reminder && task.reminderTime == null) {
+                            showDialog = true
+                        } else if (!task.reminder && task.reminderTime != null) {
+                            whatToDoNotificationService.scheduleNotification(
+                                task.title,
+                                task.reminderTime,
+                                task.notificationId
+                            )
+                            AlarmIcon = Icons.Default.AlarmOn
+                        } else {
+                            whatToDoNotificationService.cancelNotification(task.notificationId)
+                            AlarmIcon = Icons.Default.AlarmOff
+                        }
+
+                        task.reminder = !task.reminder
+                        dbHelper.changeReminder(task.id, task.reminder)
+                    }
             )
-            Icon(
-                imageVector = Icons.Default.CameraAlt,
-                tint = if (task.photo) Color.Black else Color.Gray,
-                contentDescription = "Photograph",
-                modifier = Modifier
-                    .padding(end = 5.dp)
-                    .clickable { { /*TODO*/ } }
+
+            ReminderDialog(
+                showDialog = showDialog,
+                onDialogDismiss = { showDialog = false },
+                onReminderSet = { isReminderSet ->
+                    AlarmIcon = if (isReminderSet)Icons.Default.AlarmOn else Icons.Default.AlarmOff
+                    task.reminder = isReminderSet
+                    dbHelper.changeReminder(task.id, task.reminder)
+                }
             )
+
+            if ( task.isDone ) {
+
+
+                val infiniteTransition = rememberInfiniteTransition()
+
+                val pulseMagnitude by infiniteTransition.animateFloat(
+                    initialValue = 1f,
+                    targetValue = 1.2f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(durationMillis = 1000, easing = FastOutSlowInEasing),
+                        repeatMode = RepeatMode.Reverse
+                    ), label = "photo"
+                )
+
+                Icon(
+                    imageVector = Icons.Default.CameraAlt,
+                    tint = Color.Black ,
+                    contentDescription = "Photograph",
+                    modifier = Modifier
+                        .padding(end = 5.dp)
+                        .clickable { { /*TODO*/ } }
+                        .graphicsLayer(scaleX = pulseMagnitude, scaleY = pulseMagnitude)
+                )
+
+            }
+
             Icon(
                 imageVector = Icons.Default.ExpandMore,
                 tint = if (expanded) Color.Black else Color.Gray,
@@ -411,27 +515,47 @@ fun TaskItem(
                     .clickable { expanded = !expanded }
             )
         }
+
+        if (task.isDone) photoString = "Wonderful! Take a selfie!" else photoString = ""
+
         if(expanded){
+            Box(modifier = Modifier
+                .background(cardColor)){
+                Divider(modifier = Modifier
+                    .padding(vertical = 8.dp))
+
+            }
+
             Column(modifier = Modifier
                 .fillMaxWidth()
-                .background(Color(0xFFF1F1F1))
-                .padding(start = 48.dp, bottom = 10.dp))
+                .background(cardColor)
+                .padding(start = 12.dp, bottom = 10.dp))
             {
                 Text(
                     text = if(task.reminderTime!=null) "Reminder: ${task.reminderTime}" else "Reminder is off",
-                    fontFamily = FontFamily.Serif)
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Black)
 
                 Row{
                     Text(
-                        text = "Photo: ",
-                        fontFamily = FontFamily.Serif)
+                        text = photoString,
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Black)
                     Spacer(modifier = Modifier.weight(1f))
                     Icon(
-                        imageVector = Icons.Default.Delete,
+                        imageVector = Icons.Sharp.Delete,
                         contentDescription = "Delete",
                         modifier = Modifier
                             .padding(end = 5.dp)
-                            .clickable { onDelete(task) }
+                            .clickable {
+                                onDelete(task)
+                            },
+                        tint = Color.Red
+
                     )
                 }
             }
@@ -441,28 +565,42 @@ fun TaskItem(
 
 
 
-
-
-fun generateTaskList(size: Int): List<Task> {
-    val titles = listOf("Daily Workout", "Meeting", "Study Session", "Walk the Dog", "Shopping")
-    val times = listOf("10:00", "11:00", "14:30", "16:00", "18:45")
-
-
-    var id = 0
-    return List(size) {
-        val titleIndex = Random.nextInt(titles.size)
-        val timeIndex = Random.nextInt(times.size)
-        Task(
-            id = id++,
-            title = titles[titleIndex],
-            isDone = Random.nextBoolean(),
-            reminder = Random.nextBoolean(),
-            reminderTime = times[timeIndex],
-            photo = Random.nextBoolean(),
-            notificationId = -2,
+@Composable
+fun ReminderDialog(
+    showDialog: Boolean,
+    onDialogDismiss: () -> Unit,
+    onReminderSet: (Boolean) -> Unit
+) {
+    if (showDialog) {
+        AlertDialog(
+            onDismissRequest = { onDialogDismiss() },
+            title = { Text(text = "Reminder") },
+            text = { Text(text = "Would you like to set a reminder?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onReminderSet(true)
+                        onDialogDismiss()
+                    }
+                ) {
+                    Text(text = "Yes")
+                }
+            },
+            dismissButton = {
+                Button(
+                    onClick = {
+                        onReminderSet(false)
+                        onDialogDismiss()
+                    }
+                ) {
+                    Text(text = "No")
+                }
+            }
         )
     }
 }
+
+
 
 @Composable
 fun TimePickerDialogComponent(

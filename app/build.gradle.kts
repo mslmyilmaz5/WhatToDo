@@ -50,6 +50,7 @@ android {
 }
 
 dependencies {
+    implementation(platform("androidx.compose:compose-bom:2023.06.01"))
     implementation("com.google.code.gson:gson:2.8.8")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:1.0.0-alpha07")
     implementation("androidx.datastore:datastore-preferences:1.0.0")

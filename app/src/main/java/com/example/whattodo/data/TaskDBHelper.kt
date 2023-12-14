@@ -134,11 +134,11 @@ class TaskDBHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, 
         return task
     }
 
-    fun changeReminder(taskId: Int, newReminderStatus: Boolean): Boolean {
+    fun updateReminder(taskId: Int, task: Task): Boolean {
         val db = this.writableDatabase
         val contentValues = ContentValues()
-        contentValues.put(COLUMN_REMINDER, if (newReminderStatus) 1 else 0)
-
+        contentValues.put(COLUMN_REMINDER, if (task.reminder) 1 else 0)
+        contentValues.put(COLUMN_REMINDER_TIME, task.reminderTime)
         val whereClause = "$COLUMN_ID = ?"
         val whereArgs = arrayOf(taskId.toString())
 

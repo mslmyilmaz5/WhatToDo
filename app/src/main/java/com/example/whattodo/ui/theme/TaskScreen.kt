@@ -3,7 +3,6 @@ package com.example.whattodo.ui.theme
 import TaskDBHelper
 import android.app.TimePickerDialog
 import android.content.Intent
-import android.graphics.drawable.Icon
 import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -16,17 +15,14 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -34,50 +30,38 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddTask
-import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material.icons.filled.AlarmOff
 import androidx.compose.material.icons.filled.AlarmOn
 import androidx.compose.material.icons.filled.CameraAlt
-import androidx.compose.material.icons.filled.Checklist
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.TaskAlt
 import androidx.compose.material.icons.sharp.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
-import androidx.compose.material3.rememberDismissState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.input.pointer.consumeAllChanges
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.whattodo.HabitsActivity
@@ -85,11 +69,8 @@ import com.example.whattodo.MainActivity
 import com.example.whattodo.WhatToDoNotificationService
 import com.example.whattodo.model.Task
 import java.text.SimpleDateFormat
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
 import java.util.Calendar
 import java.util.Locale
-import kotlin.math.roundToInt
 import kotlin.random.Random
 
 
@@ -125,6 +106,9 @@ fun WhatToDoAppTask(taskDBHelper : TaskDBHelper,
             confirmButton = {
                 Button(
                     onClick = {
+                        if(reminderTime == null){
+                            reminder = false
+                        }
                         val task = Task(Random.nextInt(),taskTitle.text,false, reminder,reminderTime,false, notificationId)
                         task.id = taskDBHelper.addTask(task).toInt()
                         tasks.add(task)
@@ -185,8 +169,7 @@ fun WhatToDoAppTask(taskDBHelper : TaskDBHelper,
                     if (reminder) {
                         Spacer(modifier = Modifier.height(16.dp))
                         TimePickerDialogComponent(
-                            selectedTime = reminderTime,
-                            onTimeSelected = { reminderTime = it },
+                            onTimeSelected = { reminderTime = it }
                         )
 
 
@@ -453,30 +436,40 @@ fun TaskItem(
                     .clickable {
                         if (!task.reminder && task.reminderTime == null) {
                             showDialog = true
-                        } else if (!task.reminder && task.reminderTime != null) {
+                        }
+                        else if (!task.reminder && task.reminderTime != null) {
                             whatToDoNotificationService.scheduleNotification(
                                 task.title,
                                 task.reminderTime,
                                 task.notificationId
                             )
                             AlarmIcon = Icons.Default.AlarmOn
-                        } else {
+                        }
+                        else {
                             whatToDoNotificationService.cancelNotification(task.notificationId)
                             AlarmIcon = Icons.Default.AlarmOff
                         }
 
                         task.reminder = !task.reminder
-                        dbHelper.changeReminder(task.id, task.reminder)
+                        dbHelper.updateReminder(task.id, task)
                     }
             )
 
             ReminderDialog(
                 showDialog = showDialog,
                 onDialogDismiss = { showDialog = false },
-                onReminderSet = { isReminderSet ->
-                    AlarmIcon = if (isReminderSet)Icons.Default.AlarmOn else Icons.Default.AlarmOff
-                    task.reminder = isReminderSet
-                    dbHelper.changeReminder(task.id, task.reminder)
+                onReminderSet = { reminderTime ->
+                    val reminderSet = reminderTime != null
+                    AlarmIcon = if (reminderSet)Icons.Default.AlarmOn else Icons.Default.AlarmOff
+                    task.reminder = reminderSet
+                    task.reminderTime = reminderTime
+                    whatToDoNotificationService.scheduleNotification(
+                        task.title,
+                        task.reminderTime,
+                        task.notificationId
+                    )
+                    showDialog = false
+                    dbHelper.updateReminder(task.id, task)
                 }
             )
 
@@ -532,7 +525,7 @@ fun TaskItem(
                 .padding(start = 12.dp, bottom = 10.dp))
             {
                 Text(
-                    text = if(task.reminderTime!=null) "Reminder: ${task.reminderTime}" else "Reminder is off",
+                    text = if(task.reminder) "Reminder: ${task.reminderTime}" else "Reminder is off",
                     fontFamily = FontFamily.Monospace,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
@@ -569,18 +562,28 @@ fun TaskItem(
 fun ReminderDialog(
     showDialog: Boolean,
     onDialogDismiss: () -> Unit,
-    onReminderSet: (Boolean) -> Unit
+    onReminderSet: (String?) -> Unit
 ) {
+    var showTimePickerDialog by remember { mutableStateOf(false) }
+    var key by remember { mutableStateOf(0) }
+
     if (showDialog) {
         AlertDialog(
-            onDismissRequest = { onDialogDismiss() },
+            onDismissRequest = {
+                if (showTimePickerDialog) {
+                    showTimePickerDialog = false
+                    onDialogDismiss()
+                } else {
+                    onDialogDismiss()
+                }
+            },
             title = { Text(text = "Reminder") },
             text = { Text(text = "Would you like to set a reminder?") },
             confirmButton = {
                 Button(
                     onClick = {
-                        onReminderSet(true)
-                        onDialogDismiss()
+                        key++
+                        showTimePickerDialog = true
                     }
                 ) {
                     Text(text = "Yes")
@@ -589,7 +592,8 @@ fun ReminderDialog(
             dismissButton = {
                 Button(
                     onClick = {
-                        onReminderSet(false)
+                        onReminderSet(null)
+                        showTimePickerDialog = false
                         onDialogDismiss()
                     }
                 ) {
@@ -597,21 +601,24 @@ fun ReminderDialog(
                 }
             }
         )
+
+        key(key) {
+            if (showTimePickerDialog) {
+                TimePickerDialogComponent(
+                    onTimeSelected = { time ->
+                        onReminderSet(time)
+                    }
+                )
+            }
+        }
     }
 }
-
-
-
 @Composable
 fun TimePickerDialogComponent(
-    selectedTime: String?,
     onTimeSelected: (String) -> Unit,
-
-    ) {
+) {
     val context = LocalContext.current
-    var time by remember { mutableStateOf(selectedTime ?: "") }
-
-
+    var time by remember { mutableStateOf("") }
     val calendar = remember { Calendar.getInstance() }
     val timePickerDialog = remember {
         TimePickerDialog(
@@ -620,35 +627,21 @@ fun TimePickerDialogComponent(
                 val formattedTime = String.format("%02d:%02d", hourOfDay, minute)
                 time = formattedTime
                 onTimeSelected(formattedTime)
-
-
             },
-
             calendar.get(Calendar.HOUR_OF_DAY),
             calendar.get(Calendar.MINUTE),
-            true,
-            // 24-hour format
+            true // 24-hour format
         )
-
-
     }
 
     BackHandler(onBack = {
         timePickerDialog.dismiss()
-
     })
 
-    Column(
-        verticalArrangement = Arrangement.Center
-    ) {
-        Button(
-            onClick = {
-                timePickerDialog.show()
-            },
-        ) {
-            Text(
-                text = "Select Time"
-            )
+    DisposableEffect(Unit) {
+        timePickerDialog.show()
+        onDispose {
+            timePickerDialog.dismiss()
         }
     }
 }

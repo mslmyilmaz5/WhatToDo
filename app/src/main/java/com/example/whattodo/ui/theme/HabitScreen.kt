@@ -113,7 +113,6 @@ fun WhatToDoAppHabit(habitList: List<Habit>, modifier: Modifier = Modifier) {
                     if (reminder) {
                         Spacer(modifier = Modifier.height(16.dp))
                         TimePickerDialogComponent(
-                            selectedTime = reminderTime,
                             onTimeSelected = { reminderTime = it }
                         )
                     } else {

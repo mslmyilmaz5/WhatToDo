@@ -7,7 +7,9 @@ data class Task(
     var reminder: Boolean,
     var reminderTime: String?,
     var photo: Boolean,
-    var notificationId: Int
+    var notificationId: Int,
+    var date : String,
+    var habitId : Int
 )
 
 

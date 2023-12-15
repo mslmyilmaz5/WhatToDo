@@ -72,6 +72,7 @@ import com.example.whattodo.model.Habit
 import com.example.whattodo.model.Task
 import java.text.SimpleDateFormat
 import java.util.Calendar
+import java.util.Date
 import java.util.Locale
 import kotlin.random.Random
 
@@ -87,8 +88,8 @@ fun WhatToDoAppTask(databaseHelper: DatabaseHelper,
     var reminder by remember { mutableStateOf(false) }
     var reminderTime by remember { mutableStateOf<String?>(null) }
     var notificationId by remember { mutableStateOf(Random.nextInt()) }
-    var tasks by remember { mutableStateOf<MutableList<Task>>(databaseHelper.getAllTasks().toMutableList()) }
-    var habits by remember { mutableStateOf<MutableList<Habit>>(databaseHelper.getAllHabits().toMutableList()) }
+    var tasks by remember { mutableStateOf(databaseHelper.getAllTasks(
+        getCurrentDateTime()).toMutableList()) }
 
     for (task in tasks) {
         Log.d("Task Reminder Status", task.reminder.toString())
@@ -111,7 +112,7 @@ fun WhatToDoAppTask(databaseHelper: DatabaseHelper,
                         if(reminderTime == null){
                             reminder = false
                         }
-                        val task = Task(Random.nextInt(),taskTitle.text,false, reminder,reminderTime,false, notificationId)
+                        val task = Task(Random.nextInt(),taskTitle.text,false, reminder,reminderTime,false, notificationId,"",-1)
                         task.id = databaseHelper.addTask(task).toInt()
                         tasks.add(task)
                         if (reminder) whatToDoNotificationService.scheduleNotification(taskTitle.text,reminderTime,notificationId)
@@ -389,8 +390,15 @@ fun TaskItem(
     Card(
         modifier = modifier.padding(bottom = 20.dp)
     ) {
-        var cardColor by remember { mutableStateOf(if (task.isDone) Color(0xFF4044C9) else Color(0xFFF1F1F1)) }
-
+        var cardColor by remember { mutableStateOf(if (task.isDone) {
+            Color(0xff4044c9)
+        } else {
+            if (task.habitId != -1) {
+                Color(0xffb0f7c3) // Set the color to green if habitId is not -1
+            } else {
+                Color(0xfff1f1f1) // Set the default color
+            }
+        })}
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
@@ -641,4 +649,8 @@ fun TimePickerDialogComponent(
             timePickerDialog.dismiss()
         }
     }
+}
+private fun getCurrentDateTime(): String {
+    val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+    return sdf.format(Date())
 }

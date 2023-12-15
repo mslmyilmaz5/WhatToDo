@@ -6,11 +6,14 @@ import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import com.example.whattodo.model.Habit
 import com.example.whattodo.model.Task
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
-class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, null, DATABASE_VERSION) {
+class DatabaseHelper(context: Context?) : SQLiteOpenHelper(context, DATABASE_NAME, null, DATABASE_VERSION) {
 
     companion object {
-        private const val DATABASE_VERSION = 1
+        private const val DATABASE_VERSION = 2 // Update the version for the database upgrade
         private const val DATABASE_NAME = "TaskDatabase"
         private const val TABLE_TASKS = "tasks"
         private const val TABLE_HABIT = "habit"
@@ -23,12 +26,15 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
         private const val COLUMN_REMINDER_TIME_TASKS = "reminderTime"
         private const val COLUMN_PHOTO = "photo"
         private const val COLUMN_NOTIFICATION_ID = "notificationId"
+        private const val COLUMN_DATE = "date" // New column for date
 
         // Columns for habit table
         private const val COLUMN_ID_HABIT = "id"
         private const val COLUMN_TITLE_HABIT = "title"
         private const val COLUMN_REMINDER_HABIT = "reminder"
         private const val COLUMN_REMINDER_TIME_HABIT = "reminderTime"
+        private const val COLUMN_HABIT_ID = "habitId"
+
     }
 
     override fun onCreate(db: SQLiteDatabase?) {
@@ -39,7 +45,9 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
                 "$COLUMN_REMINDER_TASKS INTEGER, " +
                 "$COLUMN_REMINDER_TIME_TASKS TEXT, " +
                 "$COLUMN_PHOTO INTEGER, " +
-                "$COLUMN_NOTIFICATION_ID INTEGER)")
+                "$COLUMN_NOTIFICATION_ID INTEGER, " +
+                "$COLUMN_DATE TEXT, " +
+                "$COLUMN_HABIT_ID INTEGER)") // New column for habit_id
 
         val CREATE_HABIT_TABLE_QUERY = ("CREATE TABLE $TABLE_HABIT " +
                 "($COLUMN_ID_HABIT INTEGER PRIMARY KEY AUTOINCREMENT, " +
@@ -52,9 +60,11 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
     }
 
     override fun onUpgrade(db: SQLiteDatabase?, oldVersion: Int, newVersion: Int) {
-        db?.execSQL("DROP TABLE IF EXISTS $TABLE_TASKS")
-        db?.execSQL("DROP TABLE IF EXISTS $TABLE_HABIT")
-        onCreate(db)
+        if (oldVersion < 2) {
+            // Add the new column HABIT_ID to the existing tasks table
+            db?.execSQL("ALTER TABLE $TABLE_TASKS ADD COLUMN $COLUMN_HABIT_ID INTEGER")
+            // Perform other necessary upgrades for other versions
+        }
     }
 
     fun addTask(task: Task): Long {
@@ -66,18 +76,34 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
         values.put(COLUMN_REMINDER_TIME_TASKS, task.reminderTime)
         values.put(COLUMN_PHOTO, if (task.photo) 1 else 0)
         values.put(COLUMN_NOTIFICATION_ID, task.notificationId)
+        values.put(COLUMN_DATE, getCurrentDateTime()) // Set current date/time
+        values.put(COLUMN_HABIT_ID, task.habitId) // Set the habit_id for the task
 
         val id = db.insert(TABLE_TASKS, null, values)
         db.close()
         return id
     }
 
+    private fun getCurrentDateTime(): String {
+        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        return sdf.format(Date())
+    }
 
-
-    fun getAllTasks(): ArrayList<Task> {
+    fun getAllTasks(date: String): ArrayList<Task> {
         val tasks = ArrayList<Task>()
         val db = this.readableDatabase
-        val cursor: Cursor? = db.rawQuery("SELECT * FROM $TABLE_TASKS", null)
+        val selection = "$COLUMN_DATE LIKE ?"
+        val selectionArgs = arrayOf("$date%")
+
+        val cursor: Cursor? = db.query(
+            TABLE_TASKS,
+            null,
+            selection,
+            selectionArgs,
+            null,
+            null,
+            null
+        )
 
         cursor?.use {
             val idIndex = cursor.getColumnIndex(COLUMN_ID_TASKS)
@@ -87,7 +113,8 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
             val reminderTimeIndex = cursor.getColumnIndex(COLUMN_REMINDER_TIME_TASKS)
             val photoIndex = cursor.getColumnIndex(COLUMN_PHOTO)
             val notificationIdIndex = cursor.getColumnIndex(COLUMN_NOTIFICATION_ID)
-
+            val dateIndex = cursor.getColumnIndex(COLUMN_DATE)
+            val habitIdIndex = cursor.getColumnIndex(COLUMN_HABIT_ID)
             if (cursor.moveToFirst()) {
                 do {
                     val id = cursor.getInt(idIndex)
@@ -97,9 +124,12 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
                     val reminderTime = cursor.getString(reminderTimeIndex)
                     val photo = cursor.getInt(photoIndex) == 1
                     val notificationId = cursor.getInt(notificationIdIndex)
-
-                    val task = Task(id, title, isDone, reminder, reminderTime, photo, notificationId)
-                    tasks.add(task)
+                    val taskDate = cursor.getString(dateIndex)
+                    val habitId = cursor.getInt(habitIdIndex)
+                    val task = Task(id, title, isDone, reminder, reminderTime, photo, notificationId,taskDate,habitId)
+                    if (taskDate.startsWith(date)) {
+                        tasks.add(task)
+                    }
                 } while (cursor.moveToNext())
             }
         }
@@ -200,7 +230,29 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
         db.close()
         return id
     }
+    fun hasTaskForDateAndHabitId(date: String, habitId: Int): Boolean {
+        val db = this.readableDatabase
 
+        val selection = "$COLUMN_DATE = ? AND $COLUMN_HABIT_ID = ?"
+        val selectionArgs = arrayOf(date, habitId.toString())
+
+        val cursor: Cursor? = db.query(
+            TABLE_TASKS,
+            null,
+            selection,
+            selectionArgs,
+            null,
+            null,
+            null
+        )
+
+        val hasTask = cursor?.count ?: 0 > 0 // Check if cursor has any rows
+
+        cursor?.close()
+        db.close()
+
+        return hasTask
+    }
 
 
 }

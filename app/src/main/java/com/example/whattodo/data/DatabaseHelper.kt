@@ -209,6 +209,21 @@ class DatabaseHelper(context: Context?) : SQLiteOpenHelper(context, DATABASE_NAM
         return updatedRows > 0
     }
 
+    fun changeIsPhoto(taskId:Int, newIsPhotoStatus: Boolean): Boolean {
+        val db = this.writableDatabase
+        val contentValues = ContentValues()
+        contentValues.put(COLUMN_PHOTO, if (newIsPhotoStatus) 1 else 0)
+
+        val whereClause = "$COLUMN_ID_TASKS = ?"
+        val whereArgs = arrayOf(taskId.toString())
+
+        val updatedRows = db.update(TABLE_TASKS, contentValues, whereClause, whereArgs)
+
+        db.close()
+
+        return updatedRows > 0
+    }
+
     fun deleteHabit(habitId: Int): Int {
         val db = this.writableDatabase
         val whereClause = "$COLUMN_ID_HABIT = ?"

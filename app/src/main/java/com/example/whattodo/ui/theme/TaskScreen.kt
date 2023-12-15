@@ -2,8 +2,13 @@ package com.example.whattodo.ui.theme
 
 import DatabaseHelper
 import android.app.TimePickerDialog
+import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Environment
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -13,7 +18,10 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -25,6 +33,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -55,25 +64,36 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
+import coil.compose.rememberImagePainter
 import com.example.whattodo.HabitsActivity
 import com.example.whattodo.MainActivity
+import com.example.whattodo.R
 import com.example.whattodo.WhatToDoNotificationService
 import com.example.whattodo.model.Habit
 
 import com.example.whattodo.model.Task
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import java.util.Objects
 import kotlin.random.Random
 
 
@@ -385,7 +405,45 @@ fun TaskItem(
     var expanded by remember { mutableStateOf(false) }
     var showDialog by remember { mutableStateOf(false) }
     var isTaskDone by remember { mutableStateOf(task.isDone) }
-    var photoString by remember { mutableStateOf("") }
+
+    var photoString by remember {
+        mutableStateOf(if (task.isDone) "Wonderful! Take a selfie!" else "")
+    }
+
+
+
+
+    val context = LocalContext.current
+    val file = context.createImageFile(task.id)
+
+    val uri = FileProvider.getUriForFile(
+        Objects.requireNonNull(context),
+        context.packageName + ".provider", file
+    )
+
+    var capturedImageUri by remember {
+        mutableStateOf<Uri>(Uri.EMPTY)
+    }
+
+    val cameraLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()){
+            capturedImageUri = uri
+        }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ){
+        if (it)
+        {
+            Toast.makeText(context, "Permission Granted", Toast.LENGTH_SHORT).show()
+            cameraLauncher.launch(uri)
+        }
+        else
+        {
+            Toast.makeText(context, "Permission Denied", Toast.LENGTH_SHORT).show()
+        }
+    }
+
 
     Card(
         modifier = modifier.padding(bottom = 20.dp)
@@ -418,7 +476,7 @@ fun TaskItem(
                         expanded = false
                         cardColor = Color(0xFFF1F1F1)
                     }
-
+                    photoString = if (task.isDone) "Wonderful! Take a selfie!" else ""
                     dbHelper.changeIsDone(task.id,task.isDone) },
 
             )
@@ -481,7 +539,7 @@ fun TaskItem(
             if ( task.isDone ) {
 
 
-                val infiniteTransition = rememberInfiniteTransition()
+                val infiniteTransition = rememberInfiniteTransition(label = "infinite_trans")
 
                 val pulseMagnitude by infiniteTransition.animateFloat(
                     initialValue = 1f,
@@ -498,7 +556,21 @@ fun TaskItem(
                     contentDescription = "Photograph",
                     modifier = Modifier
                         .padding(end = 5.dp)
-                        .clickable { { /*TODO*/ } }
+                        .clickable {
+
+                            val permissionCheckResult =
+                                ContextCompat.checkSelfPermission(context, android.Manifest.permission.CAMERA)
+
+                            if (permissionCheckResult == PackageManager.PERMISSION_GRANTED)
+                            {
+                                cameraLauncher.launch(uri)
+                            }
+                            else
+                            {
+                                permissionLauncher.launch(android.Manifest.permission.CAMERA)
+                            }
+
+                        }
                         .graphicsLayer(scaleX = pulseMagnitude, scaleY = pulseMagnitude)
                 )
 
@@ -514,7 +586,7 @@ fun TaskItem(
             )
         }
 
-        if (task.isDone) photoString = "Wonderful! Take a selfie!" else photoString = ""
+
 
         if(expanded){
             Box(modifier = Modifier
@@ -529,16 +601,9 @@ fun TaskItem(
                 .background(cardColor)
                 .padding(start = 12.dp, bottom = 10.dp))
             {
-                Text(
-                    text = if(task.reminder) "Reminder: ${task.reminderTime}" else "Reminder is off",
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.Black)
-
                 Row{
                     Text(
-                        text = photoString,
+                        text = if(task.reminder) "Reminder: ${task.reminderTime}" else "Reminder is off",
                         fontFamily = FontFamily.Monospace,
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
@@ -552,10 +617,67 @@ fun TaskItem(
                             .clickable {
                                 onDelete(task)
                             },
-                        tint = Color.Red
 
+                        tint = Color.Red
                     )
+
                 }
+
+                    Text(
+                        text = photoString,
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Black)
+
+
+
+
+                if (task.isDone) {
+
+                    val rainbowColorsBrush = remember {
+                        Brush.sweepGradient(
+                            listOf(
+                                Color(0xFF9575CD),
+                                Color(0xFFBA68C8),
+                                Color(0xFFE57373),
+                                Color(0xFFFFB74D),
+                                Color(0xFFFFF176),
+                                Color(0xFFAED581),
+                                Color(0xFF4DD0E1),
+                                Color(0xFF9575CD)
+                            )
+                        )
+                    }
+                    val image = context.getImageByName("WhatToDo_${task.id}.jpg")
+                    if (image != null){
+                        photoString = ""
+                        task.photo = true
+                        dbHelper.changeIsPhoto(task.id,task.photo)
+                        Image(
+                            painter = rememberImagePainter(image),
+                            contentDescription = "image",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .padding(end = 12.dp,top=10.dp,)
+                                .clip(RoundedCornerShape(5.dp))
+                                .width(325.dp)
+                                .height(325.dp)
+                                .border(
+                                    BorderStroke(10.dp, rainbowColorsBrush),
+                                    RectangleShape
+                                )
+
+
+                        )
+
+                    }
+
+
+                }
+
+
+
             }
         }
     }
@@ -653,4 +775,61 @@ fun TimePickerDialogComponent(
 private fun getCurrentDateTime(): String {
     val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
     return sdf.format(Date())
+}
+
+
+
+
+
+private fun Context.createImageFile(
+    taskId: Int
+): File {
+
+    val timeStamp = SimpleDateFormat("yyyy_MM_dd_HH:mm:ss").format(Date())
+    val imageFileName = "WhatToDo_${taskId}.jpg"
+
+    val storageDir = getExternalFilesDir(Environment.DIRECTORY_PICTURES)
+    return File(storageDir, imageFileName)
+
+}
+
+fun Context.getImageByName(fileName: String): File? {
+    val storageDir = getExternalFilesDir(Environment.DIRECTORY_PICTURES)
+    val directory = File(storageDir?.absolutePath ?: "")
+
+    if (directory.exists() && directory.isDirectory) {
+        val files = directory.listFiles()
+        if (files != null) {
+            for (file in files) {
+                if (file.isFile && file.exists() && file.name.equals(fileName, ignoreCase = true)) {
+                    return file
+                }
+            }
+        }
+    }
+
+    return null
+}
+
+fun Context.deleteImageByName(fileName: String): Boolean {
+    val storageDir = getExternalFilesDir(Environment.DIRECTORY_PICTURES)
+    val directory = File(storageDir?.absolutePath ?: "")
+
+    if (directory.exists() && directory.isDirectory) {
+        val files = directory.listFiles()
+        if (files != null) {
+            for (file in files) {
+                if (file.isFile && file.exists() && file.name.equals(fileName, ignoreCase = true)) {
+                    val deleted = file.delete()
+                    if (deleted) {
+                        // Eğer silme işlemi başarılıysa true döndürür.
+                        return true
+                    }
+                }
+            }
+        }
+    }
+
+    // Dosya bulunamadı veya silinemedi ise false döndürür.
+    return false
 }

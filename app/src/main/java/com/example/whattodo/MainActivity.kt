@@ -27,6 +27,8 @@ import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
 import java.text.SimpleDateFormat
+import java.time.LocalDate
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import kotlin.random.Random
@@ -65,7 +67,7 @@ class MainActivity : ComponentActivity() {
         val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
         val currentDate = sdf.format(Date())
         for (habit in habits){
-            if (!databaseHelper.hasTaskForDateAndHabitId(currentDate,habit.id)){
+            if (!databaseHelper.hasTaskForDateAndHabitId(currentDate,habit.id) && habit.days[getIndexOfToday()] != '0'){
                 val task = Task(0,habit.title,false,habit.reminder,habit.reminderTime,false,
                     Random.nextInt(),"",habit.id)
                 databaseHelper.addTask(task)
@@ -79,6 +81,14 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+    //Starting index is sunday
+    fun getIndexOfToday(): Int {
+        val calendar = Calendar.getInstance()
+        calendar.firstDayOfWeek = Calendar.SUNDAY
+        val dayOfWeek = calendar.get(Calendar.DAY_OF_WEEK)
+        return (dayOfWeek + 6) % 7
+    }
+
 }
 
 

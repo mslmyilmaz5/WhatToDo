@@ -4,9 +4,11 @@ data class Habit(
     var id: Int,
     var title : String,
     var reminder : Boolean,
-    var reminderTime : String?
+    var reminderTime : String?,
+    var days : String
 ) {
 
 }
+
 
 

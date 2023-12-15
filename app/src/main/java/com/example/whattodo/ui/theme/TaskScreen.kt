@@ -42,6 +42,7 @@ import androidx.compose.material.icons.filled.AddTask
 import androidx.compose.material.icons.filled.AlarmOff
 import androidx.compose.material.icons.filled.AlarmOn
 import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.sharp.Delete
 import androidx.compose.material3.AlertDialog
@@ -51,7 +52,9 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Snackbar
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
@@ -61,6 +64,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -81,6 +85,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import coil.compose.rememberImagePainter
+import com.example.whattodo.DayCompletedActivity
 import com.example.whattodo.HabitsActivity
 import com.example.whattodo.MainActivity
 import com.example.whattodo.R
@@ -88,6 +93,7 @@ import com.example.whattodo.WhatToDoNotificationService
 import com.example.whattodo.model.Habit
 
 import com.example.whattodo.model.Task
+import kotlinx.coroutines.launch
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -110,6 +116,33 @@ fun WhatToDoAppTask(databaseHelper: DatabaseHelper,
     var notificationId by remember { mutableStateOf(Random.nextInt()) }
     var tasks by remember { mutableStateOf(databaseHelper.getAllTasks(
         getCurrentDateTime()).toMutableList()) }
+    val context = LocalContext.current
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { _ -> }
+
+    var showConfirmation by remember { mutableStateOf(false) }
+    if (showConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showConfirmation = false },
+            title = { Text(text = "Finishing the Day") },
+            text = { Text(text = "Are you sure to finish the day?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showConfirmation= false
+                        val intent = Intent(context, DayCompletedActivity::class.java)
+                        launcher.launch(intent)
+                    }
+                ) {
+                    Text("Yes")
+                }
+            },
+            dismissButton = {
+                Button(onClick = { showConfirmation= false }) {
+                    Text("No")
+                }
+            }
+        )
+    }
 
     for (task in tasks) {
         Log.d("Task Reminder Status", task.reminder.toString())
@@ -187,27 +220,15 @@ fun WhatToDoAppTask(databaseHelper: DatabaseHelper,
                             fontSize = 18.sp
                         )
                     }
-
-                    // Adjust the layout here to ensure proper visibility of components
                     if (reminder) {
-                        Spacer(modifier = Modifier.height(16.dp))
                         TimePickerDialogComponent(
                             onTimeSelected = { reminderTime = it }
                         )
-
-
-                    } else {
-                        // Add an empty box to reserve space when reminder is false
-                        Spacer(modifier = Modifier.height(50.dp))
                     }
                 }
             }
         )
     }
-
-
-
-
 
     Column(
         modifier = modifier.fillMaxSize()
@@ -234,6 +255,22 @@ fun WhatToDoAppTask(databaseHelper: DatabaseHelper,
                 tasks = tasks.filterNot { it == deletedTask }.toMutableList()
                 databaseHelper.deleteTask(deletedTask.id)
             })
+            FloatingActionButton(
+                onClick = {
+                        showConfirmation = true }
+,
+                modifier = Modifier
+                    .padding(16.dp)
+                    .size(56.dp)
+                    .align(Alignment.BottomEnd),
+                containerColor = Color(0xFFFF7373),
+                contentColor = Color.White
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = "Finish the Day"
+                )
+            }
         }
         Navbar(0)
     }
@@ -294,8 +331,6 @@ fun Header(count : Int,tasksOrHabits : String,
                     .padding(end = 15.dp)
                     .size(40.dp)
                     .clickable { onAddNewClicked() }
-
-
             )
 
         }
@@ -310,7 +345,7 @@ fun Content(taskList : List<Task>,
     LazyColumn(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(10.dp)
+            .padding(start = 10.dp, end = 10.dp, bottom = 10.dp, top = 30.dp)
     ) {
         items(taskList) { task->
             TaskItem(
@@ -321,6 +356,9 @@ fun Content(taskList : List<Task>,
                 dbHelper = DatabaseHelper(context),
                 whatToDoNotificationService = WhatToDoNotificationService(context,"WhatToDo_Notification")
             )
+        }
+        item {
+            Spacer(modifier = Modifier.height(56.dp))
         }
     }
 }
@@ -405,15 +443,12 @@ fun TaskItem(
     var expanded by remember { mutableStateOf(false) }
     var showDialog by remember { mutableStateOf(false) }
     var isTaskDone by remember { mutableStateOf(task.isDone) }
+    val context = LocalContext.current
+    val image = context.getImageByName("WhatToDo_${task.id}.jpg")
 
     var photoString by remember {
         mutableStateOf(if (task.isDone) "Wonderful! Take a selfie!" else "")
     }
-
-
-
-
-    val context = LocalContext.current
     val file = context.createImageFile(task.id)
 
     val uri = FileProvider.getUriForFile(
@@ -443,7 +478,6 @@ fun TaskItem(
             Toast.makeText(context, "Permission Denied", Toast.LENGTH_SHORT).show()
         }
     }
-
 
     Card(
         modifier = modifier.padding(bottom = 20.dp)
@@ -557,21 +591,21 @@ fun TaskItem(
                     modifier = Modifier
                         .padding(end = 5.dp)
                         .clickable {
-
+                            expanded = false
                             val permissionCheckResult =
-                                ContextCompat.checkSelfPermission(context, android.Manifest.permission.CAMERA)
+                                ContextCompat.checkSelfPermission(
+                                    context,
+                                    android.Manifest.permission.CAMERA
+                                )
 
-                            if (permissionCheckResult == PackageManager.PERMISSION_GRANTED)
-                            {
+                            if (permissionCheckResult == PackageManager.PERMISSION_GRANTED) {
                                 cameraLauncher.launch(uri)
-                            }
-                            else
-                            {
+                            } else {
                                 permissionLauncher.launch(android.Manifest.permission.CAMERA)
                             }
-
                         }
                         .graphicsLayer(scaleX = pulseMagnitude, scaleY = pulseMagnitude)
+
                 )
 
             }
@@ -585,9 +619,6 @@ fun TaskItem(
                     .clickable { expanded = !expanded }
             )
         }
-
-
-
         if(expanded){
             Box(modifier = Modifier
                 .background(cardColor)){
@@ -603,24 +634,25 @@ fun TaskItem(
             {
                 Row{
                     Text(
-                        text = if(task.reminder) "Reminder: ${task.reminderTime}" else "Reminder is off",
+                        text = if(task.reminder && task.reminderTime != null) "Reminder: ${task.reminderTime}" else "Reminder is off",
                         fontFamily = FontFamily.Monospace,
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.Black)
                     Spacer(modifier = Modifier.weight(1f))
-                    Icon(
-                        imageVector = Icons.Sharp.Delete,
-                        contentDescription = "Delete",
-                        modifier = Modifier
-                            .padding(end = 5.dp)
-                            .clickable {
-                                onDelete(task)
-                            },
+                    if(task.habitId == -1){
+                        Icon(
+                            imageVector = Icons.Sharp.Delete,
+                            contentDescription = "Delete",
+                            modifier = Modifier
+                                .padding(end = 5.dp)
+                                .clickable {
+                                    onDelete(task)
+                                },
 
-                        tint = Color.Red
-                    )
-
+                            tint = Color.Red
+                        )
+                    }
                 }
 
                     Text(
@@ -629,8 +661,6 @@ fun TaskItem(
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.Black)
-
-
 
 
                 if (task.isDone) {
@@ -649,7 +679,7 @@ fun TaskItem(
                             )
                         )
                     }
-                    val image = context.getImageByName("WhatToDo_${task.id}.jpg")
+
                     if (image != null){
                         photoString = ""
                         task.photo = true
@@ -659,7 +689,7 @@ fun TaskItem(
                             contentDescription = "image",
                             contentScale = ContentScale.Crop,
                             modifier = Modifier
-                                .padding(end = 12.dp,top=10.dp,)
+                                .padding(end = 12.dp, top = 10.dp,)
                                 .clip(RoundedCornerShape(5.dp))
                                 .width(325.dp)
                                 .height(325.dp)
@@ -667,17 +697,9 @@ fun TaskItem(
                                     BorderStroke(10.dp, rainbowColorsBrush),
                                     RectangleShape
                                 )
-
-
                         )
-
                     }
-
-
                 }
-
-
-
             }
         }
     }

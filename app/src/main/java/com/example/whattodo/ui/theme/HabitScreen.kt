@@ -1,6 +1,7 @@
 package com.example.whattodo.ui.theme
 
 import DatabaseHelper
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -41,6 +42,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
@@ -54,6 +56,7 @@ import kotlin.random.Random
 @Composable
 
 fun WhatToDoAppHabit(databaseHelper: DatabaseHelper,
+                     whatToDoNotificationService: WhatToDoNotificationService,
                      modifier: Modifier = Modifier) {
     var showDialog by remember { mutableStateOf(false) }
     var habitTitle by remember { mutableStateOf(TextFieldValue()) }
@@ -63,6 +66,8 @@ fun WhatToDoAppHabit(databaseHelper: DatabaseHelper,
     var selectedDays by remember {
         mutableStateOf(List(daysOfWeek.size) { false })
     }
+    var notificationId by remember { mutableStateOf(Random.nextInt()) }
+
     var habits by remember { mutableStateOf(databaseHelper.getAllHabits().toMutableList()) }
     if (showDialog) {
         AlertDialog(
@@ -80,13 +85,14 @@ fun WhatToDoAppHabit(databaseHelper: DatabaseHelper,
                     onClick = {
                         val days = selectedDays.map { if (it) '1' else '0' }.joinToString(separator = "")
                         if(reminderTime == null) reminder = false
-                        val habit = Habit(Random.nextInt(),habitTitle.text,reminder,reminderTime,days)
+                        val habit = Habit(Random.nextInt(),habitTitle.text,reminder,reminderTime,days,notificationId)
                         habit.id = databaseHelper.addHabit(habit).toInt()
                         habits.add(habit)
                         showDialog = false
                         habitTitle = TextFieldValue() // Reset form state
                         reminder = false // Reset reminder state
                         reminderTime = null // Reset selected time state
+                        notificationId = Random.nextInt()
                         selectedDays = List(daysOfWeek.size) { false }
                     }
                 ) {
@@ -200,6 +206,7 @@ fun HabitContent(habitList : List<Habit>,
                  onDeleteHabit : (deletedHabit: Habit) -> Unit,
                  modifier: Modifier = Modifier,databaseHelper: DatabaseHelper
 ){
+    val context = LocalContext.current
     LazyColumn(
         modifier = Modifier
             .fillMaxWidth()
@@ -210,7 +217,8 @@ fun HabitContent(habitList : List<Habit>,
                 habit = habit,
                 onDelete = { deletedHabit ->
                     onDeleteHabit(deletedHabit)
-                }, databaseHelper = databaseHelper)
+                }, databaseHelper = databaseHelper,
+                whatToDoNotificationService = WhatToDoNotificationService(context,"WhatToDo_Notification"))
         }
     }
 }
@@ -220,11 +228,13 @@ fun HabitItem(
     habit: Habit,
     onDelete: (Habit) -> Unit,
     modifier: Modifier = Modifier,
-    databaseHelper : DatabaseHelper
+    databaseHelper : DatabaseHelper,
+    whatToDoNotificationService: WhatToDoNotificationService
 ) {
     var expanded by remember { mutableStateOf(false) }
     val daysOfWeek = listOf("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
     var showDialog by remember { mutableStateOf(false) }
+    Log.d("Habit Days",habit.days)
 
     Card(
         modifier = modifier.padding(bottom = 20.dp)
@@ -265,6 +275,7 @@ fun HabitItem(
                             AlarmIcon = Icons.Default.AlarmOff
                         }
                         habit.reminder = !habit.reminder
+
                         databaseHelper.updateHabit(habit)
                     }
             )
@@ -319,7 +330,7 @@ fun HabitItem(
                         Box(
                             modifier = Modifier
                                 .padding(end = 8.dp)
-                                .size(40.dp)
+                                .size(35.dp)
                                 .background(
                                     color = color,
                                     shape = CircleShape

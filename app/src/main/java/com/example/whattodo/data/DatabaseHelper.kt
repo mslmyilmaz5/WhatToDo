@@ -35,6 +35,7 @@ class DatabaseHelper(context: Context?) : SQLiteOpenHelper(context, DATABASE_NAM
         private const val COLUMN_REMINDER_TIME_HABIT = "reminderTime"
         private const val COLUMN_HABIT_ID = "habitId"
         private const val COLUMN_DAYS = "days"
+        private const val COLUMN_HABIT_NOTIFICATION_ID = "notificationId"
 
     }
 
@@ -55,7 +56,8 @@ class DatabaseHelper(context: Context?) : SQLiteOpenHelper(context, DATABASE_NAM
                 "$COLUMN_TITLE_HABIT TEXT, " +
                 "$COLUMN_REMINDER_HABIT INTEGER, " +
                 "$COLUMN_REMINDER_TIME_HABIT TEXT, " +
-                "$COLUMN_DAYS TEXT)")
+                "$COLUMN_DAYS TEXT, " +
+                "$COLUMN_HABIT_NOTIFICATION_ID INTEGER)")
 
         db?.execSQL(CREATE_TASKS_TABLE_QUERY)
         db?.execSQL(CREATE_HABIT_TABLE_QUERY)
@@ -159,6 +161,7 @@ class DatabaseHelper(context: Context?) : SQLiteOpenHelper(context, DATABASE_NAM
             val reminderIndex = cursor.getColumnIndex(COLUMN_REMINDER_HABIT)
             val reminderTimeIndex = cursor.getColumnIndex(COLUMN_REMINDER_TIME_HABIT)
             val daysIndex = cursor.getColumnIndex(COLUMN_DAYS)
+            val notificationId = cursor.getColumnIndex(COLUMN_HABIT_NOTIFICATION_ID)
             if (cursor.moveToFirst()) {
                 do {
                     val id = cursor.getInt(idIndex)
@@ -166,7 +169,7 @@ class DatabaseHelper(context: Context?) : SQLiteOpenHelper(context, DATABASE_NAM
                     val reminder = cursor.getInt(reminderIndex) == 1
                     val reminderTime = cursor.getString(reminderTimeIndex)
                     val days = cursor.getString(daysIndex)
-                    val habit = Habit(id, title, reminder, reminderTime,days)
+                    val habit = Habit(id, title, reminder, reminderTime,days,notificationId)
                     habits.add(habit)
                 } while (cursor.moveToNext())
             }

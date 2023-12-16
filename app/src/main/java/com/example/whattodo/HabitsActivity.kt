@@ -16,6 +16,10 @@ import com.example.whattodo.ui.theme.WhatToDoTheme
 
 
 class HabitsActivity : ComponentActivity() {
+
+    private val whatToDoNotificationService by lazy {
+        WhatToDoNotificationService(applicationContext,"")
+    }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -26,7 +30,7 @@ class HabitsActivity : ComponentActivity() {
                     color = Color(0xFF4044C9)
                 ) {
                     val databaseHelper = DatabaseHelper(this)
-                    WhatToDoAppHabit(databaseHelper)
+                    WhatToDoAppHabit(databaseHelper,whatToDoNotificationService)
                 }
             }
         }

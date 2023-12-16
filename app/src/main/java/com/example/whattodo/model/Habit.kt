@@ -5,7 +5,8 @@ data class Habit(
     var title : String,
     var reminder : Boolean,
     var reminderTime : String?,
-    var days : String
+    var days : String,
+    var notificationId: Int,
 ) {
 
 }

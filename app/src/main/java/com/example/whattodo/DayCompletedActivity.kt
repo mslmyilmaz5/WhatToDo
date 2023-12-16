@@ -1,6 +1,8 @@
 package com.example.whattodo
 
+import android.content.Context
 import android.os.Bundle
+import android.os.Environment
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
@@ -11,6 +13,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import com.example.whattodo.ui.theme.WhatToDoTheme
+import com.example.whattodo.ui.theme.showAlbum
+import java.io.File
 
 class DayCompletedActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -22,25 +26,47 @@ class DayCompletedActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    Greeting("Android")
+                    showAlbum()
                 }
             }
         }
     }
 }
 
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
+
+fun Context.getImageByName(fileName: String): File? {
+    val storageDir = getExternalFilesDir(Environment.DIRECTORY_PICTURES)
+    val directory = File(storageDir?.absolutePath ?: "")
+
+    if (directory.exists() && directory.isDirectory) {
+        val files = directory.listFiles()
+        if (files != null) {
+            for (file in files) {
+                if (file.isFile && file.exists() && file.name.equals(fileName, ignoreCase = true)) {
+                    return file
+                }
+            }
+        }
+    }
+
+    return null
 }
 
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    WhatToDoTheme {
-        Greeting("Android")
+fun Context.getFilesContainingString(substring: String): List<File> {
+    val storageDir = getExternalFilesDir(Environment.DIRECTORY_PICTURES)
+    val directory = File(storageDir?.absolutePath ?: "")
+    val foundFiles = mutableListOf<File>()
+
+    if (directory.exists() && directory.isDirectory) {
+        val files = directory.listFiles()
+        if (files != null) {
+            for (file in files) {
+                if (file.isFile && file.exists() && file.name.contains(substring, ignoreCase = true)) {
+                    foundFiles.add(file)
+                }
+            }
+        }
     }
+
+    return foundFiles
 }

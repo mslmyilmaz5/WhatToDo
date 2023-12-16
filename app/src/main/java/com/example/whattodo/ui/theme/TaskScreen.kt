@@ -12,6 +12,7 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -23,6 +24,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -119,7 +121,10 @@ fun WhatToDoAppTask(databaseHelper: DatabaseHelper,
     val context = LocalContext.current
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { _ -> }
 
+
+
     var showConfirmation by remember { mutableStateOf(false) }
+
     if (showConfirmation) {
         AlertDialog(
             onDismissRequest = { showConfirmation = false },
@@ -254,6 +259,11 @@ fun WhatToDoAppTask(databaseHelper: DatabaseHelper,
                 whatToDoNotificationService.cancelNotification(deletedTask.notificationId)
                 tasks = tasks.filterNot { it == deletedTask }.toMutableList()
                 databaseHelper.deleteTask(deletedTask.id)
+                if (deletedTask.photo) {
+
+                    val timeStamp = SimpleDateFormat("MM_dd").format(Date())
+                    context.deleteImageByName("WhatToDo${timeStamp}#${deletedTask.id}.jpg")
+                }
             })
             FloatingActionButton(
                 onClick = {
@@ -432,6 +442,8 @@ fun Navbar(focus : Int,modifier: Modifier = Modifier){
     }
 }
 
+
+
 @Composable
 fun TaskItem(
     task: Task,
@@ -444,11 +456,11 @@ fun TaskItem(
     var showDialog by remember { mutableStateOf(false) }
     var isTaskDone by remember { mutableStateOf(task.isDone) }
     val context = LocalContext.current
-    val image = context.getImageByName("WhatToDo_${task.id}.jpg")
 
     var photoString by remember {
         mutableStateOf(if (task.isDone) "Wonderful! Take a selfie!" else "")
     }
+
     val file = context.createImageFile(task.id)
 
     val uri = FileProvider.getUriForFile(
@@ -479,8 +491,18 @@ fun TaskItem(
         }
     }
 
+
+
     Card(
         modifier = modifier.padding(bottom = 20.dp)
+            .animateContentSize()
+            .fillMaxWidth()
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null
+            ) {
+                expanded = !expanded
+            }
     ) {
         var cardColor by remember { mutableStateOf(if (task.isDone) {
             Color(0xff4044c9)
@@ -591,7 +613,6 @@ fun TaskItem(
                     modifier = Modifier
                         .padding(end = 5.dp)
                         .clickable {
-                            expanded = false
                             val permissionCheckResult =
                                 ContextCompat.checkSelfPermission(
                                     context,
@@ -600,6 +621,8 @@ fun TaskItem(
 
                             if (permissionCheckResult == PackageManager.PERMISSION_GRANTED) {
                                 cameraLauncher.launch(uri)
+                                task.photo = true
+                                dbHelper.changeIsPhoto(task.id,task.photo)
                             } else {
                                 permissionLauncher.launch(android.Manifest.permission.CAMERA)
                             }
@@ -610,7 +633,7 @@ fun TaskItem(
 
             }
 
-            Icon(
+            Icon (
                 imageVector = Icons.Default.ExpandMore,
                 tint = if (expanded) Color.Black else Color.Gray,
                 contentDescription = "Expand Status",
@@ -619,13 +642,11 @@ fun TaskItem(
                     .clickable { expanded = !expanded }
             )
         }
-        if(expanded){
+        if (expanded) {
             Box(modifier = Modifier
                 .background(cardColor)){
                 Divider(modifier = Modifier
                     .padding(vertical = 8.dp))
-
-            }
 
             Column(modifier = Modifier
                 .fillMaxWidth()
@@ -663,49 +684,61 @@ fun TaskItem(
                         color = Color.Black)
 
 
-                if (task.isDone) {
+                if (task.isDone && task.photo) {
 
-                    val rainbowColorsBrush = remember {
-                        Brush.sweepGradient(
-                            listOf(
-                                Color(0xFF9575CD),
-                                Color(0xFFBA68C8),
-                                Color(0xFFE57373),
-                                Color(0xFFFFB74D),
-                                Color(0xFFFFF176),
-                                Color(0xFFAED581),
-                                Color(0xFF4DD0E1),
-                                Color(0xFF9575CD)
-                            )
-                        )
-                    }
+                    val timeStamp = SimpleDateFormat("MM_dd").format(Date())
+                    val image = context.getImageByName("WhatToDo${timeStamp}#${task.id}.jpg")
+                    showImage(image = image)
+                    photoString = ""
 
-                    if (image != null){
-                        photoString = ""
-                        task.photo = true
-                        dbHelper.changeIsPhoto(task.id,task.photo)
-                        Image(
-                            painter = rememberImagePainter(image),
-                            contentDescription = "image",
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier
-                                .padding(end = 12.dp, top = 10.dp,)
-                                .clip(RoundedCornerShape(5.dp))
-                                .width(325.dp)
-                                .height(325.dp)
-                                .border(
-                                    BorderStroke(10.dp, rainbowColorsBrush),
-                                    RectangleShape
-                                )
-                        )
-                    }
                 }
+            }
             }
         }
     }
 }
 
+@Composable
+fun showImage(
+     image: File?,
+){
+    val rainbowColorsBrush = remember {
+        Brush.sweepGradient(
+            listOf(
+                Color(0xFF9575CD),
+                Color(0xFFBA68C8),
+                Color(0xFFE57373),
+                Color(0xFFFFB74D),
+                Color(0xFFFFF176),
+                Color(0xFFAED581),
+                Color(0xFF4DD0E1),
+                Color(0xFF9575CD)
+            )
+        )
+    }
 
+
+    if (image != null){
+        Image(
+            painter = rememberImagePainter(image),
+            contentDescription = "image",
+            contentScale = ContentScale.Crop,
+            modifier = Modifier
+                .padding(end = 12.dp, top = 10.dp,)
+                .clip(RoundedCornerShape(5.dp))
+                .width(325.dp)
+                .height(325.dp)
+                .border(
+                    BorderStroke(10.dp, rainbowColorsBrush),
+                    RectangleShape
+                )
+        )
+
+    }
+
+
+
+}
 
 @Composable
 fun ReminderDialog(
@@ -801,14 +834,12 @@ private fun getCurrentDateTime(): String {
 
 
 
-
-
 private fun Context.createImageFile(
     taskId: Int
 ): File {
 
-    val timeStamp = SimpleDateFormat("yyyy_MM_dd_HH:mm:ss").format(Date())
-    val imageFileName = "WhatToDo_${taskId}.jpg"
+    val timeStamp = SimpleDateFormat("MM_dd").format(Date())
+    val imageFileName = "WhatToDo${timeStamp}#${taskId}.jpg"
 
     val storageDir = getExternalFilesDir(Environment.DIRECTORY_PICTURES)
     return File(storageDir, imageFileName)
@@ -841,17 +872,24 @@ fun Context.deleteImageByName(fileName: String): Boolean {
         val files = directory.listFiles()
         if (files != null) {
             for (file in files) {
+                Log.d("XXXXXXXX", file.name.equals(fileName, ignoreCase = true).toString())
                 if (file.isFile && file.exists() && file.name.equals(fileName, ignoreCase = true)) {
-                    val deleted = file.delete()
-                    if (deleted) {
-                        // Eğer silme işlemi başarılıysa true döndürür.
-                        return true
+
+                    try {
+                        val deleted = file.delete()
+                        if (deleted) {
+                            // Debug için log eklenebilir
+                             Log.d("DeleteImage", "File deleted: ${file.absolutePath}")
+                            return true
+                        }
+                    } catch (e: Exception) {
+                        // Hata durumunu logla
+                         Log.e("DeleteImage", "Error deleting file: ${e.message}")
+                        return false
                     }
                 }
             }
         }
     }
-
-    // Dosya bulunamadı veya silinemedi ise false döndürür.
     return false
 }

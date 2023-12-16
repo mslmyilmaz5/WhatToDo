@@ -2,4 +2,5 @@
     <string name="app_name">WhatToDo</string>
     <string name="title_activity_habits">HabitsActivity</string>
     <string name="title_activity_day_completed">DayCompletedActivity</string>
+
 </resources>

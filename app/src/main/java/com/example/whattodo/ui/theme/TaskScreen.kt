@@ -133,9 +133,14 @@ fun WhatToDoAppTask(databaseHelper: DatabaseHelper,
             confirmButton = {
                 Button(
                     onClick = {
-                        showConfirmation= false
-                        val intent = Intent(context, DayCompletedActivity::class.java)
-                        launcher.launch(intent)
+                        if(tasks.any { it.isDone }){
+                            showConfirmation= false
+                            val intent = Intent(context, DayCompletedActivity::class.java)
+                            launcher.launch(intent)
+                        }
+                        else{
+                            Toast.makeText(context, "Finish some tasks before you finish the day :)", Toast.LENGTH_SHORT).show()
+                        }
                     }
                 ) {
                     Text("Yes")
@@ -685,9 +690,7 @@ fun TaskItem(
 
 
                 if (task.isDone && task.photo) {
-
-                    val timeStamp = SimpleDateFormat("MM_dd").format(Date())
-                    val image = context.getImageByName("WhatToDo${timeStamp}#${task.id}.jpg")
+                    val image = context.getImageByName("WhatToDo#${task.id}.jpg")
                     showImage(image = image)
                     photoString = ""
 
@@ -838,8 +841,7 @@ private fun Context.createImageFile(
     taskId: Int
 ): File {
 
-    val timeStamp = SimpleDateFormat("MM_dd").format(Date())
-    val imageFileName = "WhatToDo${timeStamp}#${taskId}.jpg"
+    val imageFileName = "WhatToDo#${taskId}.jpg"
 
     val storageDir = getExternalFilesDir(Environment.DIRECTORY_PICTURES)
     return File(storageDir, imageFileName)

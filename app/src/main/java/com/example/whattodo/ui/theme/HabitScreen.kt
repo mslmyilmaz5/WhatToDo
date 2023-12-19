@@ -2,8 +2,10 @@ package com.example.whattodo.ui.theme
 
 import DatabaseHelper
 import android.util.Log
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -46,6 +48,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.whattodo.WhatToDoNotificationService
@@ -192,9 +195,12 @@ fun WhatToDoAppHabit(databaseHelper: DatabaseHelper,
                 )
         ) {
             HabitContent( habits,{ deletedHabit ->
+                whatToDoNotificationService.cancelNotification(deletedHabit.notificationId)
                 habits = habits.filterNot { it == deletedHabit }.toMutableList()
                 databaseHelper.deleteHabit(deletedHabit.id)
                 databaseHelper.deleteTaskByHabitId(deletedHabit.id)
+
+
             },databaseHelper = databaseHelper)
         }
         Navbar(1)
@@ -238,13 +244,21 @@ fun HabitItem(
 
     Card(
         modifier = modifier.padding(bottom = 20.dp)
+            .animateContentSize()
+            .fillMaxWidth()
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null
+            ) {
+                expanded = !expanded
+            }
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
                 .background(Color(0xFFF1F1F1))
-                .padding(top = 15.dp, bottom = 10.dp)
+                .padding(15.dp)
         ) {
             Text(
                 text = habit.title,
@@ -252,8 +266,10 @@ fun HabitItem(
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.Black,
-                modifier = Modifier.padding(start = 16.dp)
-
+                maxLines = if (expanded) Int.MAX_VALUE else 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier =  Modifier
+                    .weight(if (expanded) 10f else 5f)
             )
             Spacer(modifier = Modifier.weight(1f))
 

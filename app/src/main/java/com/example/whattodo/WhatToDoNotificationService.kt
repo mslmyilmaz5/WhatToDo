@@ -22,11 +22,22 @@ class  WhatToDoNotificationService (
 
     fun showBasicNotification() {
         createNotificationChannel()
+
+        val intent = Intent(context, MainActivity::class.java)
+        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        val pendingIntent = PendingIntent.getActivity(context,
+            0, intent,
+            PendingIntent.FLAG_IMMUTABLE )
+
         val notification = NotificationCompat.Builder(context, "WhatToDo_Notification")
             .setContentTitle(title)
-            .setSmallIcon(androidx.core.R.drawable.notification_template_icon_bg)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(
+                "This is the reminder notification for your task titled \"${title}\"Do not forget to complete it!."
+            ))
+            .setSmallIcon(R.drawable.wtd_notification)
             .setPriority(NotificationManager.IMPORTANCE_HIGH)
             .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
             .build()
 
         notificationManager.notify(
@@ -34,6 +45,7 @@ class  WhatToDoNotificationService (
             notification
         )
     }
+
 
     fun scheduleNotification(content: String, reminderTime: String?, notificationId: Int) {
 

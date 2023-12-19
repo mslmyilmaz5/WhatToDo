@@ -50,7 +50,7 @@ android {
 }
 
 dependencies {
-
+    implementation ("androidx.appcompat:appcompat:1.3.1")
     implementation("io.coil-kt:coil-compose:1.4.0")
     implementation(platform("androidx.compose:compose-bom:2023.06.01"))
     implementation("com.google.code.gson:gson:2.8.8")

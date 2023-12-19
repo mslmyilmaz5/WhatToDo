@@ -5,6 +5,8 @@ import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.icu.text.SimpleDateFormat
+import android.net.Uri
+import android.os.Environment
 import android.provider.MediaStore
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -28,6 +30,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowBackIos
 import androidx.compose.material.icons.filled.ArrowForwardIos
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -43,31 +46,41 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.rememberImagePainter
+import androidx.core.content.FileProvider
+import coil.compose.ImagePainter
 import com.example.whattodo.MainActivity
+import com.example.whattodo.R
 import com.example.whattodo.getFilesContainingString
 import com.example.whattodo.model.Task
 import java.io.File
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import java.util.Objects
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 
 fun DayCompletedScreen(databaseHelper: DatabaseHelper,
                      modifier: Modifier = Modifier) {
-    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { _ -> }
-    val context = LocalContext.current
+
     var index by remember { mutableStateOf(0)}
+
     val allTasks = databaseHelper.getAllTasks(getCurrentDateTime())
     val completedTasks = allTasks.filter { it.isDone }
 
@@ -76,7 +89,7 @@ fun DayCompletedScreen(databaseHelper: DatabaseHelper,
     Column(
         modifier = modifier.fillMaxSize()
     ) {
-        DayCompletedHeader(allTasks.count(),completedTasks.count())
+        DayCompletedHeader()
         Box(
             modifier = Modifier
                 .weight(1f)
@@ -91,57 +104,168 @@ fun DayCompletedScreen(databaseHelper: DatabaseHelper,
                 )
         ) {
             DayCompletedContent({index = if(index < completedTasks.count()-1) index + 1 else 0}
-                ,imageResource,completedTasks[index])
-            FloatingActionButton(
-                onClick = {
-                    val intent = Intent(context, MainActivity::class.java)
-                    launcher.launch(intent)
-                    }
-                ,
-                modifier = Modifier
-                    .padding(16.dp)
-                    .size(56.dp)
-                    .align(Alignment.BottomEnd),
-                containerColor = Color(0xfff1f1f1),
-                contentColor = Color(0xFF4044C9)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.ArrowBack,
-                    contentDescription = "Go to tasks page"
-                )
-            }
+                ,imageResource,completedTasks[index],allTasks.count(),completedTasks.count(),databaseHelper,imageFile)
+
         }
         DayCompletedNavbar({index = if(index > 0) index - 1 else completedTasks.count()-1},
-            {index = if(index < completedTasks.count()-1) index + 1 else 0}
-            ,imageFile)
+            {index = if(index < completedTasks.count()-1) index + 1 else 0})
     }
 }
 
 @Composable
-fun DayCompletedContent(onClick : () -> Unit,imageResource : Painter?,task : Task,modifier : Modifier = Modifier){
-    Column(modifier.fillMaxWidth().padding(top = 80.dp),
+fun DayCompletedContent(onClick : () -> Unit,
+                        imageResource : Painter?,
+                        task : Task,
+                        allTaskCount : Int,
+                        completedTaskCount : Int,
+                        databaseHelper: DatabaseHelper,
+                        imageFile: List<File>,
+                        modifier : Modifier = Modifier){
+
+    val context = LocalContext.current
+    val file = context.createImageFile(task.id)
+    var contentText by remember { mutableStateOf("" )}
+
+    var capturedImageUri by remember {
+        mutableStateOf<Uri>(Uri.EMPTY)
+    }
+    val uri = FileProvider.getUriForFile(
+        Objects.requireNonNull(context),
+        context.packageName + ".provider", file
+    )
+
+
+    val cameraLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()){
+            capturedImageUri = uri
+        }
+
+    Column(
+        modifier
+            .fillMaxWidth()
+            .padding(top = 20.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        if(imageResource != null){
+
+                Text(
+                    text = "${completedTaskCount}/${allTaskCount} Tasks Completed",
+                    color = Color.Black,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+        contentText = if (task.photo) "This is the picture for task ${task.title}"
+        else "Add a photo for task ${task.title}"
+
+                Text(
+                    text = contentText,
+                    color = Color.Black,
+                    fontFamily = FontFamily.Monospace,
+                    textAlign = TextAlign.Center,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+
+
+        if(imageResource != null ){
+         Box( contentAlignment = Alignment.BottomEnd){
+
+             Image(
+                 painter = imageResource,
+                 contentDescription = null,
+                 modifier = Modifier
+                     .width(300.dp)
+                     .height(400.dp)
+                     .clip(RoundedCornerShape(15.dp))
+                     .clickable { onClick() },
+                 contentScale = ContentScale.Crop
+             )
+
+             SaveIcon(imageFile,
+                 modifier = Modifier
+                     .padding(start = 10.dp, end = 10.dp)
+                     .size(50.dp)
+                     .align(Alignment.BottomEnd))
+
+         }
+
+
+        } else if (capturedImageUri != Uri.EMPTY) {
+
+            Box(contentAlignment = Alignment.BottomEnd){
+
+                Image(
+                    painter = rememberImagePainter(capturedImageUri),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .width(300.dp)
+                        .height(400.dp)
+                        .clip(RoundedCornerShape(15.dp))
+                        .clickable { onClick() },
+                    contentScale = ContentScale.Crop
+                )
+                SaveIcon(imageFile,
+                        modifier = Modifier
+                            .padding(start = 10.dp, end = 10.dp)
+                            .size(50.dp)
+                            .align(Alignment.BottomEnd))
+
+            }
+            // Kullanıcı bir fotoğraf çektiyse, çekilen fotoğrafı göster
+
+        }
+        else {
+
             Image(
-                painter = imageResource,
+                painter = painterResource(R.drawable.photo_add_image),
                 contentDescription = null,
                 modifier = Modifier
-                    .width(360.dp)
-                    .height(360.dp)
-                    .clickable { onClick() }
-            )
+                    .width(200.dp)
+                    .height(200.dp)
+                    .clip(RoundedCornerShape(15.dp))
+                    .clickable {
+                        cameraLauncher.launch(uri)
+                        task.photo = true
+                        databaseHelper.changeIsPhoto(task.id, task.photo)
+                               },
+                contentScale = ContentScale.Crop)
+
         }
-        Text(
-            text = task.title,Modifier.padding(20.dp),
-            fontSize = 16.sp
+
+
+    }
+}
+
+@Composable
+fun SaveIcon(imageFile: List<File>,
+             modifier : Modifier = Modifier){
+
+    val context = LocalContext.current
+
+    IconButton(
+        onClick = {
+            if(imageFile.isNotEmpty()){
+                saveImageToGallery(imageFile[0],context)
+            }
+        },
+        modifier = Modifier
+            .padding(start = 10.dp, end = 10.dp,bottom = 10.dp)
+
+            .background(Color(0xFF4044C9), shape = RoundedCornerShape(15.dp))
+            .size(33.dp)
+    ) {
+        Icon(
+            imageVector = Icons.Default.Save,
+            contentDescription = "Forward",
+            tint =Color.White, // Customize the color as needed
         )
     }
 }
 
 @Composable
-fun DayCompletedHeader(allTaskCount : Int,completedTaskCount : Int,
-           modifier: Modifier = Modifier){
+fun DayCompletedHeader(modifier: Modifier = Modifier){
     Column(modifier = modifier
         .background(Color(0xFF4044C9))
         .padding(16.dp)
@@ -172,26 +296,15 @@ fun DayCompletedHeader(allTaskCount : Int,completedTaskCount : Int,
                     .weight(1f)
                     .padding(10.dp))
         }
-        Row(verticalAlignment = Alignment.Bottom){
-            Column(modifier = Modifier
-                .weight(1f)
-                .padding(start = 10.dp, bottom = 10.dp)){
 
-                Text(
-                    text = "Day  Summary ${completedTaskCount}/${allTaskCount} Tasks Completed",
-                    color = Color.White,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp,
-                    modifier = Modifier.padding(start = 10.dp))
-            }
-        }
     }
 }
 
 @Composable
-fun DayCompletedNavbar(onBackClick : () -> Unit,onForwardClick : () -> Unit,imageFile: List<File>,modifier: Modifier = Modifier){
+fun DayCompletedNavbar(onBackClick : () -> Unit,onForwardClick : () -> Unit,modifier: Modifier = Modifier){
     val context = LocalContext.current
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { _ -> }
+
     Row(
         modifier = Modifier
             .background(Color(0xFF4044C9))
@@ -205,7 +318,8 @@ fun DayCompletedNavbar(onBackClick : () -> Unit,onForwardClick : () -> Unit,imag
             modifier = Modifier
                 .weight(1f)
                 .padding(start = 10.dp, end = 10.dp)
-                .height(50.dp).background(Color.White,shape = CircleShape)
+                .height(50.dp)
+                .background(Color.White, shape = CircleShape)
         ) {
             Icon(
                 imageVector = Icons.Default.ArrowBackIos,
@@ -213,29 +327,34 @@ fun DayCompletedNavbar(onBackClick : () -> Unit,onForwardClick : () -> Unit,imag
                 tint = Color(0xFF4044C9), // Customize the color as needed
             )
         }
-        IconButton(
+
+        FloatingActionButton(
             onClick = {
-                if(imageFile.isNotEmpty()){
-                    saveImageToGallery(imageFile[0],context)
-                }
-            },
+                val intent = Intent(context, MainActivity::class.java)
+                launcher.launch(intent)
+            }
+            ,
             modifier = Modifier
-                .weight(0.5f)
                 .padding(start = 10.dp, end = 10.dp)
-                .height(50.dp).background(Color.White,shape =  RoundedCornerShape(15.dp))
+                .size(50.dp)
+            ,
+            containerColor = Color(0xfff1f1f1),
+            contentColor = Color(0xFF4044C9)
         ) {
             Icon(
-                imageVector = Icons.Default.Save,
-                contentDescription = "Forward",
-                tint = Color(0xFF4044C9), // Customize the color as needed
+                imageVector = Icons.Default.Home,
+                contentDescription = "Go to tasks page"
             )
         }
+
+
         IconButton(
             onClick = { onForwardClick() },
             modifier = Modifier
                 .weight(1f)
                 .padding(start = 10.dp, end = 10.dp)
-                .height(50.dp).background(Color.White,shape = CircleShape)
+                .height(50.dp)
+                .background(Color.White, shape = CircleShape)
         ) {
             Icon(
                 imageVector = Icons.Default.ArrowForwardIos,
@@ -243,6 +362,9 @@ fun DayCompletedNavbar(onBackClick : () -> Unit,onForwardClick : () -> Unit,imag
                 tint = Color(0xFF4044C9), // Customize the color as needed
             )
         }
+
+
+
     }
 }
 private fun getCurrentDateTime(): String {
@@ -276,3 +398,6 @@ private fun saveImageToGallery(imageFile: File?, context: Context) {
         }
     }
 }
+
+
+

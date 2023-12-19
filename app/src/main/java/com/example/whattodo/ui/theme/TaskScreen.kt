@@ -38,6 +38,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddTask
@@ -46,6 +47,8 @@ import androidx.compose.material.icons.filled.AlarmOn
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.RestartAlt
+import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material.icons.sharp.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -82,6 +85,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -154,9 +158,6 @@ fun WhatToDoAppTask(databaseHelper: DatabaseHelper,
         )
     }
 
-    for (task in tasks) {
-        Log.d("Task Reminder Status", task.reminder.toString())
-    }
 
     if (showDialog) {
         AlertDialog(
@@ -178,7 +179,7 @@ fun WhatToDoAppTask(databaseHelper: DatabaseHelper,
                         val task = Task(Random.nextInt(),taskTitle.text,false, reminder,reminderTime,false, notificationId,"",-1)
                         task.id = databaseHelper.addTask(task).toInt()
                         tasks.add(task)
-                        if (reminder) whatToDoNotificationService.scheduleNotification(taskTitle.text,reminderTime,notificationId)
+                        if (reminder) whatToDoNotificationService.scheduleNotification("Time for  task titled \"${taskTitle.text}\"",reminderTime,notificationId)
                         showDialog = false
                         taskTitle = TextFieldValue()
                         reminder = false
@@ -357,6 +358,7 @@ fun Content(taskList : List<Task>,
             modifier: Modifier = Modifier){
 
     val context = LocalContext.current
+
     LazyColumn(
         modifier = Modifier
             .fillMaxWidth()
@@ -364,6 +366,7 @@ fun Content(taskList : List<Task>,
     ) {
         items(taskList) { task->
             TaskItem(
+
                 task = task,
                 onDelete = { deletedTask ->
                     onDeleteTask(deletedTask)
@@ -460,6 +463,7 @@ fun TaskItem(
     var expanded by remember { mutableStateOf(false) }
     var showDialog by remember { mutableStateOf(false) }
     var isTaskDone by remember { mutableStateOf(task.isDone) }
+
     val context = LocalContext.current
 
     var photoString by remember {
@@ -477,10 +481,14 @@ fun TaskItem(
         mutableStateOf<Uri>(Uri.EMPTY)
     }
 
-    val cameraLauncher =
-        rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()){
+    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { isPictureTaken ->
+        if (isPictureTaken) {
+            dbHelper.changeIsPhoto(task.id, true)
             capturedImageUri = uri
+
         }
+
+    }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -499,7 +507,8 @@ fun TaskItem(
 
 
     Card(
-        modifier = modifier.padding(bottom = 20.dp)
+        modifier = modifier
+            .padding(bottom = 20.dp)
             .animateContentSize()
             .fillMaxWidth()
             .clickable(
@@ -509,11 +518,11 @@ fun TaskItem(
                 expanded = !expanded
             }
     ) {
-        var cardColor by remember { mutableStateOf(if (task.isDone) {
-            Color(0xff4044c9)
-        } else {
+        var cardColor by remember { mutableStateOf(if (task.isDone) { Color(0xffb0f7c3) }
+
+        else {
             if (task.habitId != -1) {
-                Color(0xffb0f7c3) // Set the color to green if habitId is not -1
+                Color(0xFF9E9E9E)// Set the color to green if habitId is not -1
             } else {
                 Color(0xfff1f1f1) // Set the default color
             }
@@ -531,22 +540,30 @@ fun TaskItem(
                     task.isDone = it
                     if (task.isDone) {
                         expanded = true
-                        cardColor = Color(0xFF4044C9)
+                        cardColor = Color(0xffb0f7c3)
                     }
                     if (!task.isDone){
                         expanded = false
-                        cardColor = Color(0xFFF1F1F1)
+                        cardColor = if (task.habitId != -1) {
+                            Color(0xFF9E9E9E)// Set the color to green if habitId is not -1
+                        } else {
+                            Color(0xFFF1F1F1) // Set the default color
+                        }
                     }
                     photoString = if (task.isDone) "Wonderful! Take a selfie!" else ""
                     dbHelper.changeIsDone(task.id,task.isDone) },
-
             )
+            Spacer(modifier = Modifier.width(8.dp))
             Text(
                 text = task.title,
                 fontFamily = FontFamily.Monospace,
-                fontSize = 18.sp,
+                fontSize = 15.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.Black
+                color = Color.Black,
+                maxLines = if (expanded) Int.MAX_VALUE else 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier =  Modifier
+                    .weight(if (expanded) 10f else 5f)
             )
             Spacer(modifier = Modifier.weight(1f))
 
@@ -564,7 +581,7 @@ fun TaskItem(
                             showDialog = true
                         } else if (!task.reminder && task.reminderTime != null) {
                             whatToDoNotificationService.scheduleNotification(
-                                task.title,
+                                "Time for  task titled \"${task.title}\"",
                                 task.reminderTime,
                                 task.notificationId
                             )
@@ -588,7 +605,7 @@ fun TaskItem(
                     task.reminder = reminderSet
                     task.reminderTime = reminderTime
                     whatToDoNotificationService.scheduleNotification(
-                        task.title,
+                        "Time for  task titled \"${task.title}\"",
                         task.reminderTime,
                         task.notificationId
                     )
@@ -610,32 +627,61 @@ fun TaskItem(
                         repeatMode = RepeatMode.Reverse
                     ), label = "photo"
                 )
+                if (!task.photo){
 
-                Icon(
-                    imageVector = Icons.Default.CameraAlt,
-                    tint = Color.Black ,
-                    contentDescription = "Photograph",
-                    modifier = Modifier
-                        .padding(end = 5.dp)
-                        .clickable {
-                            val permissionCheckResult =
-                                ContextCompat.checkSelfPermission(
-                                    context,
-                                    android.Manifest.permission.CAMERA
-                                )
+                    Icon(
+                        imageVector = Icons.Default.CameraAlt,
+                        tint = Color.Black ,
+                        contentDescription = "Photograph",
+                        modifier = Modifier
+                            .padding(end = 5.dp)
+                            .clickable {
 
-                            if (permissionCheckResult == PackageManager.PERMISSION_GRANTED) {
-                                cameraLauncher.launch(uri)
-                                task.photo = true
-                                dbHelper.changeIsPhoto(task.id,task.photo)
-                            } else {
-                                permissionLauncher.launch(android.Manifest.permission.CAMERA)
+                                val permissionCheckResult =
+                                    ContextCompat.checkSelfPermission(
+                                        context,
+                                        android.Manifest.permission.CAMERA
+                                    )
+
+                                if (permissionCheckResult == PackageManager.PERMISSION_GRANTED) {
+                                    cameraLauncher.launch(uri)
+                                } else {
+                                    permissionLauncher.launch(android.Manifest.permission.CAMERA)
+                                }
                             }
-                        }
-                        .graphicsLayer(scaleX = pulseMagnitude, scaleY = pulseMagnitude)
+                            .graphicsLayer(scaleX = pulseMagnitude, scaleY = pulseMagnitude)
 
-                )
+                    )
 
+
+                } else {
+
+                    Icon(
+                        imageVector = Icons.Default.RestartAlt,
+                        tint = Color.Black ,
+                        contentDescription = "Photograph",
+                        modifier = Modifier
+                            .padding(end = 5.dp)
+                            .clickable {
+                                val permissionCheckResult =
+                                    ContextCompat.checkSelfPermission(
+                                        context,
+                                        android.Manifest.permission.CAMERA
+                                    )
+
+                                if (permissionCheckResult == PackageManager.PERMISSION_GRANTED) {
+                                    cameraLauncher.launch(uri)
+                                } else {
+                                    permissionLauncher.launch(android.Manifest.permission.CAMERA)
+                                }
+
+
+                            }
+
+
+                    )
+
+                }
             }
 
             Icon (
@@ -649,24 +695,71 @@ fun TaskItem(
         }
         if (expanded) {
             Box(modifier = Modifier
-                .background(cardColor)){
-                Divider(modifier = Modifier
-                    .padding(vertical = 8.dp))
+                .background(cardColor)
+            ){
 
             Column(modifier = Modifier
                 .fillMaxWidth()
                 .background(cardColor)
-                .padding(start = 12.dp, bottom = 10.dp))
+            )
             {
-                Row{
-                    Text(
-                        text = if(task.reminder && task.reminderTime != null) "Reminder: ${task.reminderTime}" else "Reminder is off",
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.Black)
-                    Spacer(modifier = Modifier.weight(1f))
-                    if(task.habitId == -1){
+
+                Divider(
+                    modifier = Modifier
+                        .padding(vertical = 8.dp)
+                        .fillMaxWidth(), // Divider'ı genişliği boyunca yaymak için
+                    thickness = 3.dp,
+                    color = Color.Black
+                )
+                Column {
+                    Row(
+                        modifier = Modifier
+                            .padding(start = 15.dp, bottom = 5.dp)
+                            .align(Alignment.CenterHorizontally) // Metinleri yatay olarak ortalar
+                    ) {
+
+                        if (!task.isDone) {
+
+                            Text(
+                                text = if (task.reminder && task.reminderTime != null) "Reminder set to ${task.reminderTime}." else "Remember your task! Set a reminder.",
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Normal,
+                                color = Color.Black
+                            )
+
+                        }
+
+                    }
+
+                    Row(
+                        modifier = Modifier
+                            .padding(start = 15.dp, bottom = 5.dp)
+                            .align(Alignment.CenterHorizontally) // Metinleri yatay olarak ortalar
+                    ) {
+                        Text(
+                            text = photoString,
+                            fontFamily = FontFamily.Default,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Normal,
+                            color = Color.Black
+                        )
+                    }
+
+                }
+
+
+                if (task.isDone && task.photo) {
+                    val image = context.getImageByName("WhatToDo#${task.id}.jpg")
+                    showImage(image = image)
+                    photoString = ""
+
+                }
+                if (task.habitId == -1) {
+                    Row(
+                        horizontalArrangement = Arrangement.End,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
                         Icon(
                             imageVector = Icons.Sharp.Delete,
                             contentDescription = "Delete",
@@ -675,25 +768,10 @@ fun TaskItem(
                                 .clickable {
                                     onDelete(task)
                                 },
-
                             tint = Color.Red
+
                         )
                     }
-                }
-
-                    Text(
-                        text = photoString,
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.Black)
-
-
-                if (task.isDone && task.photo) {
-                    val image = context.getImageByName("WhatToDo#${task.id}.jpg")
-                    showImage(image = image)
-                    photoString = ""
-
                 }
             }
             }
@@ -703,44 +781,25 @@ fun TaskItem(
 
 @Composable
 fun showImage(
-     image: File?,
-){
-    val rainbowColorsBrush = remember {
-        Brush.sweepGradient(
-            listOf(
-                Color(0xFF9575CD),
-                Color(0xFFBA68C8),
-                Color(0xFFE57373),
-                Color(0xFFFFB74D),
-                Color(0xFFFFF176),
-                Color(0xFFAED581),
-                Color(0xFF4DD0E1),
-                Color(0xFF9575CD)
-            )
-        )
-    }
-
-
-    if (image != null){
-        Image(
-            painter = rememberImagePainter(image),
-            contentDescription = "image",
-            contentScale = ContentScale.Crop,
+    image: File?,
+) {
+    if (image != null) {
+        Box(
             modifier = Modifier
-                .padding(end = 12.dp, top = 10.dp,)
-                .clip(RoundedCornerShape(5.dp))
-                .width(325.dp)
-                .height(325.dp)
-                .border(
-                    BorderStroke(10.dp, rainbowColorsBrush),
-                    RectangleShape
-                )
-        )
-
+                .fillMaxSize()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Image(
+                painter = rememberImagePainter(image),
+                contentDescription = "task_image",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .size(325.dp)
+                    .clip(RoundedCornerShape(10.dp))
+            )
+        }
     }
-
-
-
 }
 
 @Composable
@@ -837,7 +896,7 @@ private fun getCurrentDateTime(): String {
 
 
 
-private fun Context.createImageFile(
+fun Context.createImageFile(
     taskId: Int
 ): File {
 

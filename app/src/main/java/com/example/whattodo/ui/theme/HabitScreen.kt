@@ -2,6 +2,7 @@ package com.example.whattodo.ui.theme
 
 import DatabaseHelper
 import android.util.Log
+import android.widget.Toast
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -48,6 +49,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -180,17 +182,18 @@ fun WhatToDoAppHabit(databaseHelper: DatabaseHelper,
     Column(
         modifier = modifier.fillMaxSize()
     ) {
-        Header(habits.size,"Habits",{showDialog = true})
+        Header(habits.size,"habits.",{showDialog = true})
         Box(
             modifier = Modifier
+                .padding(start = 10.dp,end=10.dp)
                 .weight(1f)
                 .background(
                     Color.White,
                     shape = RoundedCornerShape(
                         topStart = 45.dp,
                         topEnd = 45.dp,
-                        bottomStart = 0.dp,
-                        bottomEnd = 0.dp
+                        bottomStart = 45.dp,
+                        bottomEnd = 45.dp
                     )
                 )
         ) {
@@ -240,10 +243,14 @@ fun HabitItem(
     var expanded by remember { mutableStateOf(false) }
     val daysOfWeek = listOf("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
     var showDialog by remember { mutableStateOf(false) }
-    Log.d("Habit Days",habit.days)
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    Log.d("Choose your habit days.",habit.days)
+    var text by remember {mutableStateOf("")}
+    val context = LocalContext.current
 
     Card(
-        modifier = modifier.padding(bottom = 20.dp)
+        modifier = modifier
+            .padding(bottom = 15.dp)
             .animateContentSize()
             .fillMaxWidth()
             .clickable(
@@ -260,10 +267,17 @@ fun HabitItem(
                 .background(Color(0xFFF1F1F1))
                 .padding(15.dp)
         ) {
+
+            text = if (habit.reminder && habit.reminderTime != null) {
+                habit.reminderTime.toString()
+            } else {
+                "OFF"
+            }
+
             Text(
-                text = habit.title,
+                text = habit.title +  " (R.T : $text)",
                 fontFamily = FontFamily.Monospace,
-                fontSize = 18.sp,
+                fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.Black,
                 maxLines = if (expanded) Int.MAX_VALUE else 1,
@@ -291,7 +305,6 @@ fun HabitItem(
                             AlarmIcon = Icons.Default.AlarmOff
                         }
                         habit.reminder = !habit.reminder
-
                         databaseHelper.updateHabit(habit)
                     }
             )
@@ -307,6 +320,69 @@ fun HabitItem(
                     databaseHelper.updateHabit(habit)
                 }
             )
+
+            if (showDeleteDialog) {
+                AlertDialog(
+                    modifier = Modifier.fillMaxWidth(),
+                    onDismissRequest = { showDeleteDialog = false },
+                    title = {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = "Delete your habit."
+                            )
+                        }
+                    },
+                    text = {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = "Are you sure to delete habit titled \"${habit.title}\"?",
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                onDelete(habit)
+                                showDeleteDialog = false
+                                Toast.makeText(context, "Habit deleted successfully.", Toast.LENGTH_SHORT).show()
+                            },
+                            modifier = Modifier.padding(1.dp)
+                                .size(120.dp, 48.dp)
+                        ) {
+                            Text("Delete")
+                        }
+                    },
+                    dismissButton = {
+                        Button(
+                            onClick = { showDeleteDialog = false },
+                            modifier = Modifier.padding(1.dp)
+                                .size(120.dp, 48.dp)
+                        ) {
+                            Text("Cancel")
+                        }
+                    }
+                )
+            }
+
+                Icon(
+                    imageVector = Icons.Sharp.Delete,
+                    contentDescription = "Delete",
+                    modifier = Modifier
+                        .padding(end = 5.dp)
+                        .clickable {
+                            showDeleteDialog = true
+                        },
+                    tint = Color.Red.copy(0.7f)
+
+                )
+
 
 
             Icon(
@@ -331,14 +407,9 @@ fun HabitItem(
                 .background(Color(0xFFF1F1F1))
                 .padding(start = 12.dp, bottom = 10.dp))
             {
-                Text(
-                    text = if(habit.reminder && habit.reminderTime != null) "Reminder: ${habit.reminderTime}" else "Reminder is off",
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.Black)
+
                 Spacer(modifier = Modifier.height(16.dp))
-                Text(text = "Habit Days")
+                Text(text = "Adjust your habit days.")
                 Spacer(modifier = Modifier.height(16.dp))
                 Row {
                     daysOfWeek.forEachIndexed { index, day ->
@@ -372,17 +443,7 @@ fun HabitItem(
                 }
                 Spacer(modifier = Modifier.height(16.dp))
                 Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()){
-                    Icon(
-                        imageVector = Icons.Sharp.Delete,
-                        contentDescription = "Delete",
-                        modifier = Modifier
-                            .padding(end = 5.dp)
-                            .clickable {
-                                onDelete(habit)
-                            },
-                        tint = Color.Red
 
-                    )
                 }
             }
         }

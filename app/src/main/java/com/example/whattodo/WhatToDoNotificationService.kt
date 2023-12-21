@@ -30,9 +30,9 @@ class  WhatToDoNotificationService (
             PendingIntent.FLAG_IMMUTABLE )
 
         val notification = NotificationCompat.Builder(context, "WhatToDo_Notification")
-            .setContentTitle(title)
+            .setContentTitle("Time for task titled ${title}")
             .setStyle(NotificationCompat.BigTextStyle().bigText(
-                "This is the reminder notification for your task titled \"${title}\"Do not forget to complete it!."
+                "This is the notification for your task titled ${title}. Do not forget to complete it!"
             ))
             .setSmallIcon(R.drawable.wtd_notification)
             .setPriority(NotificationManager.IMPORTANCE_HIGH)

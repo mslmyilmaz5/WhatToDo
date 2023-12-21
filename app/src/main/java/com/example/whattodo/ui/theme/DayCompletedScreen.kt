@@ -84,27 +84,33 @@ fun DayCompletedScreen(databaseHelper: DatabaseHelper,
     val allTasks = databaseHelper.getAllTasks(getCurrentDateTime())
     val completedTasks = allTasks.filter { it.isDone }
 
+
     var imageFile = LocalContext.current.getFilesContainingString("WhatToDo#"+completedTasks[index].id+".jpg")
     var imageResource = if (imageFile.isEmpty()) null else rememberImagePainter(imageFile[0])
+
+    var isPhotoTakenNow by remember { mutableStateOf(false)}
+
     Column(
         modifier = modifier.fillMaxSize()
     ) {
         DayCompletedHeader()
         Box(
+
             modifier = Modifier
                 .weight(1f)
+                .padding(start = 10.dp,end=10.dp)
                 .background(
                     Color.White,
                     shape = RoundedCornerShape(
                         topStart = 45.dp,
                         topEnd = 45.dp,
-                        bottomStart = 0.dp,
-                        bottomEnd = 0.dp
+                        bottomStart = 45.dp,
+                        bottomEnd = 45.dp
                     )
                 )
         ) {
             DayCompletedContent({index = if(index < completedTasks.count()-1) index + 1 else 0}
-                ,imageResource,completedTasks[index],allTasks.count(),completedTasks.count(),databaseHelper,imageFile)
+                ,imageResource,completedTasks[index],allTasks.count(),completedTasks.count(),databaseHelper,imageFile,)
 
         }
         DayCompletedNavbar({index = if(index > 0) index - 1 else completedTasks.count()-1},
@@ -126,6 +132,9 @@ fun DayCompletedContent(onClick : () -> Unit,
     val file = context.createImageFile(task.id)
     var contentText by remember { mutableStateOf("" )}
 
+    contentText = if (task.photo) "This is the picture for task ${task.title}"
+    else "Add a photo for task ${task.title}"
+
     var capturedImageUri by remember {
         mutableStateOf<Uri>(Uri.EMPTY)
     }
@@ -135,11 +144,13 @@ fun DayCompletedContent(onClick : () -> Unit,
     )
 
 
-    val cameraLauncher =
-        rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()){
+    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { isTaken ->
+        if (isTaken) {
             capturedImageUri = uri
+            task.photo = true
+            databaseHelper.changeIsPhoto(task.id,true)
         }
-
+    }
     Column(
         modifier
             .fillMaxWidth()
@@ -155,8 +166,6 @@ fun DayCompletedContent(onClick : () -> Unit,
                     fontSize = 18.sp,
                     modifier = Modifier.padding(bottom = 12.dp)
                 )
-        contentText = if (task.photo) "This is the picture for task ${task.title}"
-        else "Add a photo for task ${task.title}"
 
                 Text(
                     text = contentText,
@@ -191,29 +200,6 @@ fun DayCompletedContent(onClick : () -> Unit,
 
          }
 
-
-        } else if (capturedImageUri != Uri.EMPTY) {
-
-            Box(contentAlignment = Alignment.BottomEnd){
-
-                Image(
-                    painter = rememberImagePainter(capturedImageUri),
-                    contentDescription = null,
-                    modifier = Modifier
-                        .width(300.dp)
-                        .height(400.dp)
-                        .clip(RoundedCornerShape(15.dp))
-                        .clickable { onClick() },
-                    contentScale = ContentScale.Crop
-                )
-                SaveIcon(imageFile,
-                        modifier = Modifier
-                            .padding(start = 10.dp, end = 10.dp)
-                            .size(50.dp)
-                            .align(Alignment.BottomEnd))
-
-            }
-            // Kullanıcı bir fotoğraf çektiyse, çekilen fotoğrafı göster
 
         }
         else {

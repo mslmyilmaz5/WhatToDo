@@ -302,4 +302,36 @@ class DatabaseHelper(context: Context?) : SQLiteOpenHelper(context, DATABASE_NAM
     }
 
 
+    fun getPhotoStatus(taskId: Int): Boolean {
+        val db = this.readableDatabase
+        val selection = "$COLUMN_ID_TASKS = ?"
+        val selectionArgs = arrayOf(taskId.toString())
+
+        val cursor: Cursor? = db.query(
+            TABLE_TASKS,
+            arrayOf(COLUMN_PHOTO),
+            selection,
+            selectionArgs,
+            null,
+            null,
+            null
+        )
+
+        var photoStatus = false
+
+        cursor?.use {
+            val photoIndex = cursor.getColumnIndex(COLUMN_PHOTO)
+            if (cursor.moveToFirst()) {
+                photoStatus = cursor.getInt(photoIndex) == 1
+            }
+        }
+
+        cursor?.close()
+        db.close()
+
+        return photoStatus
+    }
+
+
+
 }

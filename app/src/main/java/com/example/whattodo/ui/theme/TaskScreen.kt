@@ -27,6 +27,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -39,8 +40,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AddTask
 import androidx.compose.material.icons.filled.AlarmOff
 import androidx.compose.material.icons.filled.AlarmOn
@@ -74,6 +77,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
@@ -81,7 +85,11 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
@@ -123,9 +131,10 @@ fun WhatToDoAppTask(databaseHelper: DatabaseHelper,
     var tasks by remember { mutableStateOf(databaseHelper.getAllTasks(
         getCurrentDateTime()).toMutableList()) }
     val context = LocalContext.current
+
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { _ -> }
 
-
+    //(task.reminder && task.reminderTime != null) "Reminder set to ${task.reminderTime}." else "Remember your task! Set a reminder.",
 
     var showConfirmation by remember { mutableStateOf(false) }
 
@@ -179,7 +188,7 @@ fun WhatToDoAppTask(databaseHelper: DatabaseHelper,
                         val task = Task(Random.nextInt(),taskTitle.text,false, reminder,reminderTime,false, notificationId,"",-1)
                         task.id = databaseHelper.addTask(task).toInt()
                         tasks.add(task)
-                        if (reminder) whatToDoNotificationService.scheduleNotification("Time for  task titled \"${taskTitle.text}\"",reminderTime,notificationId)
+                        if (reminder) whatToDoNotificationService.scheduleNotification("\"${taskTitle.text}\"",reminderTime,notificationId)
                         showDialog = false
                         taskTitle = TextFieldValue()
                         reminder = false
@@ -245,28 +254,31 @@ fun WhatToDoAppTask(databaseHelper: DatabaseHelper,
         modifier = modifier.fillMaxSize()
     ) {
 
-        Header(tasks.size,"Tasks",{ showDialog = true})
+        Header(tasks.size,"tasks.",{ showDialog = true})
         Box(
             modifier = Modifier
+                .padding(start = 10.dp,end=10.dp)
                 .weight(1f)
                 .background(
                     Color.White,
                     shape = RoundedCornerShape(
                         topStart = 45.dp,
                         topEnd = 45.dp,
-                        bottomStart = 0.dp,
-                        bottomEnd = 0.dp
+                        bottomStart = 45.dp,
+                        bottomEnd = 45.dp
                     )
                 )
 
 
         ) {
+
+
+
             Content(tasks,{ deletedTask ->
                 whatToDoNotificationService.cancelNotification(deletedTask.notificationId)
                 tasks = tasks.filterNot { it == deletedTask }.toMutableList()
                 databaseHelper.deleteTask(deletedTask.id)
                 if (deletedTask.photo) {
-
                     val timeStamp = SimpleDateFormat("MM_dd").format(Date())
                     context.deleteImageByName("WhatToDo${timeStamp}#${deletedTask.id}.jpg")
                 }
@@ -303,55 +315,54 @@ fun Header(count : Int,tasksOrHabits : String,
 
 
         val calendar = Calendar.getInstance()
-        val formattedDate = SimpleDateFormat("d MMMM", Locale.getDefault()).format(calendar.time)
-        Row{
-            Text(
-
-                text = "WhatToDo",
-                color = Color.White,
-                fontSize = 25.sp,
-                fontFamily = FontFamily.Monospace,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(7.dp))
-            Text(
-                text = formattedDate,
-                color = Color.White,
-                textAlign = TextAlign.Right,
-                fontFamily = FontFamily.Monospace,
-                fontWeight = FontWeight.Bold,
-                fontSize = 20.sp,
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(10.dp))
-        }
-        Row(verticalAlignment = Alignment.Bottom){
-            Column(modifier = Modifier
-                .weight(1f)
-                .padding(start = 10.dp, bottom = 10.dp)){
-
+        val formattedDate = SimpleDateFormat("EEEE, d MMMM", Locale.getDefault()).format(calendar.time)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.Bottom
+        ) {
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
                 Text(
-                    text = "$count $tasksOrHabits",
+                    text = "WhatToDo",
                     color = Color.White,
+                    fontSize = 25.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp,
-                    modifier = Modifier.padding(start = 10.dp))
+                    modifier = Modifier.padding(5.dp)
+                )
+                Text(
+                    text = formattedDate,
+                    color = Color.White,
+                    textAlign = TextAlign.Right,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
+                    modifier = Modifier.padding(5.dp)
+                )
             }
 
-            Icon(
-                imageVector = Icons.Default.AddTask,
-                contentDescription = "Photograph",
+            Box(
                 modifier = Modifier
                     .padding(end = 15.dp)
-                    .size(40.dp)
+                    .size(60.dp)
                     .clickable { onAddNewClicked() }
-            )
+                    .background(color = Color.White, shape = CircleShape)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = "Add task",
+                    tint = Color.Black,
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .size(50.dp,50.dp)
+                )
+            }
+        }
 
         }
     }
-}
+
 @Composable
 fun Content(taskList : List<Task>,
             onDeleteTask : (deletedTask : Task)->Unit ,
@@ -362,7 +373,7 @@ fun Content(taskList : List<Task>,
     LazyColumn(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 10.dp, end = 10.dp, bottom = 10.dp, top = 30.dp)
+            .padding(start = 10.dp, end = 10.dp, bottom = 30.dp, top = 30.dp)
     ) {
         items(taskList) { task->
             TaskItem(
@@ -390,7 +401,7 @@ fun Navbar(focus : Int,modifier: Modifier = Modifier){
         modifier = Modifier
             .background(Color(0xFF4044C9))
             .fillMaxWidth()
-            .padding(15.dp),
+            .padding(10.dp),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -408,7 +419,7 @@ fun Navbar(focus : Int,modifier: Modifier = Modifier){
             ),
             modifier = Modifier
                 .weight(1f)
-                .padding(start = 20.dp, end = 15.dp)
+                .padding(start = 7.dp, end = 7.dp)
                 .height(50.dp)
         ) {
             Row{
@@ -420,6 +431,8 @@ fun Navbar(focus : Int,modifier: Modifier = Modifier){
                 )
             }
         }
+
+
         Button(
             onClick = {
                 if (focus == 0) {
@@ -434,7 +447,7 @@ fun Navbar(focus : Int,modifier: Modifier = Modifier){
             ),
             modifier = Modifier
                 .weight(1f)
-                .padding(start = 15.dp, end = 20.dp)
+                .padding(start = 7.dp, end = 7.dp)
                 .height(50.dp)
         ) {
             Row{
@@ -460,15 +473,14 @@ fun TaskItem(
     dbHelper: DatabaseHelper,
     whatToDoNotificationService: WhatToDoNotificationService,
     ) {
+
     var expanded by remember { mutableStateOf(false) }
     var showDialog by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
     var isTaskDone by remember { mutableStateOf(task.isDone) }
-
+    var text by remember {mutableStateOf("")}
     val context = LocalContext.current
 
-    var photoString by remember {
-        mutableStateOf(if (task.isDone) "Wonderful! Take a selfie!" else "")
-    }
 
     val file = context.createImageFile(task.id)
 
@@ -485,6 +497,7 @@ fun TaskItem(
         if (isPictureTaken) {
             dbHelper.changeIsPhoto(task.id, true)
             capturedImageUri = uri
+            task.photo = true
 
         }
 
@@ -508,7 +521,7 @@ fun TaskItem(
 
     Card(
         modifier = modifier
-            .padding(bottom = 20.dp)
+            .padding(bottom = 15.dp)
             .animateContentSize()
             .fillMaxWidth()
             .clickable(
@@ -532,7 +545,7 @@ fun TaskItem(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(cardColor)
-                .padding(top = 15.dp, bottom = 10.dp)
+                .padding(top = 5.dp, bottom = 5.dp)
         ) {
             Checkbox(checked = isTaskDone,
                      onCheckedChange = {
@@ -550,19 +563,30 @@ fun TaskItem(
                             Color(0xFFF1F1F1) // Set the default color
                         }
                     }
-                    photoString = if (task.isDone) "Wonderful! Take a selfie!" else ""
+
                     dbHelper.changeIsDone(task.id,task.isDone) },
             )
             Spacer(modifier = Modifier.width(8.dp))
+
+            val title = task.title
+            val reminder = if (task.reminder && task.reminderTime != null) {
+                AnnotatedString(" (${task.reminderTime.toString()})", spanStyle = SpanStyle(color = Color.Red, fontWeight = FontWeight.Normal))
+            } else {
+                AnnotatedString("")
+            }
+
             Text(
-                text = task.title,
+                text = buildAnnotatedString {
+                    append(title)
+                    append(reminder)
+                },
                 fontFamily = FontFamily.Monospace,
-                fontSize = 15.sp,
+                fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.Black,
                 maxLines = if (expanded) Int.MAX_VALUE else 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier =  Modifier
+                modifier = Modifier
                     .weight(if (expanded) 10f else 5f)
             )
             Spacer(modifier = Modifier.weight(1f))
@@ -581,7 +605,7 @@ fun TaskItem(
                             showDialog = true
                         } else if (!task.reminder && task.reminderTime != null) {
                             whatToDoNotificationService.scheduleNotification(
-                                "Time for  task titled \"${task.title}\"",
+                                "\"${task.title}\"",
                                 task.reminderTime,
                                 task.notificationId
                             )
@@ -605,7 +629,7 @@ fun TaskItem(
                     task.reminder = reminderSet
                     task.reminderTime = reminderTime
                     whatToDoNotificationService.scheduleNotification(
-                        "Time for  task titled \"${task.title}\"",
+                        "\"${task.title}\"",
                         task.reminderTime,
                         task.notificationId
                     )
@@ -678,126 +702,75 @@ fun TaskItem(
 
                             }
 
-
                     )
+                    }
 
-                }
             }
-
-            Icon (
-                imageVector = Icons.Default.ExpandMore,
-                tint = if (expanded) Color.Black else Color.Gray,
-                contentDescription = "Expand Status",
-                modifier = Modifier
-                    .padding(end = 5.dp)
-                    .clickable { expanded = !expanded }
-            )
-        }
-        if (expanded) {
-            Box(modifier = Modifier
-                .background(cardColor)
-            ){
-
-            Column(modifier = Modifier
-                .fillMaxWidth()
-                .background(cardColor)
-            )
-            {
-
-                Divider(
-                    modifier = Modifier
-                        .padding(vertical = 8.dp)
-                        .fillMaxWidth(), // Divider'ı genişliği boyunca yaymak için
-                    thickness = 3.dp,
-                    color = Color.Black
-                )
-                Column {
-                    Row(
-                        modifier = Modifier
-                            .padding(start = 15.dp, bottom = 5.dp)
-                            .align(Alignment.CenterHorizontally) // Metinleri yatay olarak ortalar
-                    ) {
-
-                        if (!task.isDone) {
-
+            if (showDeleteDialog) {
+                AlertDialog(
+                    modifier = Modifier.fillMaxWidth(),
+                    onDismissRequest = { showDeleteDialog = false },
+                    title = {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
                             Text(
-                                text = if (task.reminder && task.reminderTime != null) "Reminder set to ${task.reminderTime}." else "Remember your task! Set a reminder.",
-                                fontFamily = FontFamily.Monospace,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Normal,
-                                color = Color.Black
+                                text = "Delete your task."
                             )
-
                         }
-
+                    },
+                    text = {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = "Are you sure to delete task titled \"${task.title}\"?",
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                onDelete(task)
+                                showDeleteDialog = false
+                                Toast.makeText(context, "Task deleted successfully.", Toast.LENGTH_SHORT).show()
+                            },
+                            modifier = Modifier.padding(1.dp)
+                                .size(120.dp, 48.dp)
+                        ) {
+                            Text("Delete")
+                        }
+                    },
+                    dismissButton = {
+                        Button(
+                            onClick = { showDeleteDialog = false },
+                            modifier = Modifier.padding(1.dp)
+                                .size(120.dp, 48.dp)
+                        ) {
+                            Text("Cancel")
+                        }
                     }
-
-                    Row(
-                        modifier = Modifier
-                            .padding(start = 15.dp, bottom = 5.dp)
-                            .align(Alignment.CenterHorizontally) // Metinleri yatay olarak ortalar
-                    ) {
-                        Text(
-                            text = photoString,
-                            fontFamily = FontFamily.Default,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Normal,
-                            color = Color.Black
-                        )
-                    }
-
-                }
-
-
-                if (task.isDone && task.photo) {
-                    val image = context.getImageByName("WhatToDo#${task.id}.jpg")
-                    showImage(image = image)
-                    photoString = ""
-
-                }
-                if (task.habitId == -1) {
-                    Row(
-                        horizontalArrangement = Arrangement.End,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(
-                            imageVector = Icons.Sharp.Delete,
-                            contentDescription = "Delete",
-                            modifier = Modifier
-                                .padding(end = 5.dp)
-                                .clickable {
-                                    onDelete(task)
-                                },
-                            tint = Color.Red
-
-                        )
-                    }
-                }
+                )
             }
-            }
-        }
-    }
-}
 
-@Composable
-fun showImage(
-    image: File?,
-) {
-    if (image != null) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 12.dp, vertical = 10.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Image(
-                painter = rememberImagePainter(image),
-                contentDescription = "task_image",
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .size(325.dp)
-                    .clip(RoundedCornerShape(10.dp))
-            )
+            if (task.habitId == -1) {
+
+                Icon(
+                    imageVector = Icons.Sharp.Delete,
+                    contentDescription = "Delete",
+                    modifier = Modifier
+                        .padding(end = 5.dp)
+                        .clickable {
+                            showDeleteDialog = true
+                        },
+                    tint = Color.Red.copy(0.5f)
+
+                )
+
+            }
         }
     }
 }
@@ -933,19 +906,14 @@ fun Context.deleteImageByName(fileName: String): Boolean {
         val files = directory.listFiles()
         if (files != null) {
             for (file in files) {
-                Log.d("XXXXXXXX", file.name.equals(fileName, ignoreCase = true).toString())
                 if (file.isFile && file.exists() && file.name.equals(fileName, ignoreCase = true)) {
 
                     try {
                         val deleted = file.delete()
                         if (deleted) {
-                            // Debug için log eklenebilir
-                             Log.d("DeleteImage", "File deleted: ${file.absolutePath}")
                             return true
                         }
                     } catch (e: Exception) {
-                        // Hata durumunu logla
-                         Log.e("DeleteImage", "Error deleting file: ${e.message}")
                         return false
                     }
                 }

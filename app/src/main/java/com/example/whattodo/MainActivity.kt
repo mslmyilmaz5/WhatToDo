@@ -101,7 +101,6 @@ fun setNotifications(){
         val scheduleExactAlarmPermission =
             rememberPermissionState(permission = android.Manifest.permission.USE_EXACT_ALARM)
 
-
         LaunchedEffect(key1 = true) {
             if (!postNotificationPermission.status.isGranted) {
                 postNotificationPermission.launchPermissionRequest()

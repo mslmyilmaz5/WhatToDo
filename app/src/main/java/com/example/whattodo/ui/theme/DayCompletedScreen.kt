@@ -4,6 +4,7 @@ import DatabaseHelper
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.icu.text.SimpleDateFormat
 import android.net.Uri
 import android.os.Environment
@@ -60,6 +61,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import coil.compose.rememberImagePainter
 import androidx.core.content.FileProvider
 import coil.compose.ImagePainter
@@ -77,18 +79,17 @@ import java.util.Objects
 @Composable
 
 fun DayCompletedScreen(databaseHelper: DatabaseHelper,
-                     modifier: Modifier = Modifier) {
-
+                       modifier: Modifier = Modifier) {
+    var context = LocalContext.current
     var index by remember { mutableStateOf(0)}
 
     val allTasks = databaseHelper.getAllTasks(getCurrentDateTime())
     val completedTasks = allTasks.filter { it.isDone }
 
 
-    var imageFile = LocalContext.current.getFilesContainingString("WhatToDo#"+completedTasks[index].id+".jpg")
+    var imageFile by remember { mutableStateOf(context.getFilesContainingString("WhatToDo#"+completedTasks[index].id+".jpg"))}
     var imageResource = if (imageFile.isEmpty()) null else rememberImagePainter(imageFile[0])
 
-    var isPhotoTakenNow by remember { mutableStateOf(false)}
 
     Column(
         modifier = modifier.fillMaxSize()
@@ -109,12 +110,15 @@ fun DayCompletedScreen(databaseHelper: DatabaseHelper,
                     )
                 )
         ) {
-            DayCompletedContent({index = if(index < completedTasks.count()-1) index + 1 else 0}
-                ,imageResource,completedTasks[index],allTasks.count(),completedTasks.count(),databaseHelper,imageFile,)
+            DayCompletedContent({index = if(index < completedTasks.count()-1) index + 1 else 0
+                imageFile = context.getFilesContainingString("WhatToDo#${completedTasks[index].id}.jpg")}
+                ,imageResource,completedTasks[index],allTasks.count(),completedTasks.count(),databaseHelper,imageFile, onPhotoAdded = { imageFile=context.getFilesContainingString("WhatToDo#"+completedTasks[index].id+".jpg") })
 
         }
-        DayCompletedNavbar({index = if(index > 0) index - 1 else completedTasks.count()-1},
-            {index = if(index < completedTasks.count()-1) index + 1 else 0})
+        DayCompletedNavbar({index = if(index > 0) index - 1 else completedTasks.count()-1
+            imageFile = context.getFilesContainingString("WhatToDo#${completedTasks[index].id}.jpg")},
+            {index = if(index < completedTasks.count()-1) index + 1 else 0
+                imageFile =  context.getFilesContainingString("WhatToDo#${completedTasks[index].id}.jpg")})
     }
 }
 
@@ -126,7 +130,7 @@ fun DayCompletedContent(onClick : () -> Unit,
                         completedTaskCount : Int,
                         databaseHelper: DatabaseHelper,
                         imageFile: List<File>,
-                        modifier : Modifier = Modifier){
+                        modifier : Modifier = Modifier,onPhotoAdded : () -> Unit){
 
     val context = LocalContext.current
     val file = context.createImageFile(task.id)
@@ -135,20 +139,29 @@ fun DayCompletedContent(onClick : () -> Unit,
     contentText = if (task.photo) "This is the picture for task ${task.title}"
     else "Add a photo for task ${task.title}"
 
-    var capturedImageUri by remember {
-        mutableStateOf<Uri>(Uri.EMPTY)
-    }
     val uri = FileProvider.getUriForFile(
         Objects.requireNonNull(context),
         context.packageName + ".provider", file
     )
 
-
     val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { isTaken ->
         if (isTaken) {
-            capturedImageUri = uri
             task.photo = true
             databaseHelper.changeIsPhoto(task.id,true)
+            onPhotoAdded()
+        }
+    }
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ){
+        if (it)
+        {
+            Toast.makeText(context, "Permission Granted", Toast.LENGTH_SHORT).show()
+            cameraLauncher.launch(uri)
+        }
+        else
+        {
+            Toast.makeText(context, "Permission Denied", Toast.LENGTH_SHORT).show()
         }
     }
     Column(
@@ -158,52 +171,51 @@ fun DayCompletedContent(onClick : () -> Unit,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
 
-                Text(
-                    text = "${completedTaskCount}/${allTaskCount} Tasks Completed",
-                    color = Color.Black,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp,
-                    modifier = Modifier.padding(bottom = 12.dp)
-                )
+        Text(
+            text = "${completedTaskCount}/${allTaskCount} Tasks Completed",
+            color = Color.Black,
+            fontFamily = FontFamily.Monospace,
+            fontWeight = FontWeight.Bold,
+            fontSize = 18.sp,
+            modifier = Modifier.padding(bottom = 12.dp)
+        )
 
-                Text(
-                    text = contentText,
-                    color = Color.Black,
-                    fontFamily = FontFamily.Monospace,
-                    textAlign = TextAlign.Center,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp,
-                    modifier = Modifier.padding(bottom = 12.dp)
-                )
+        Text(
+            text = contentText,
+            color = Color.Black,
+            fontFamily = FontFamily.Monospace,
+            textAlign = TextAlign.Center,
+            fontWeight = FontWeight.Bold,
+            fontSize = 18.sp,
+            modifier = Modifier.padding(bottom = 12.dp)
+        )
 
 
         if(imageResource != null ){
-         Box( contentAlignment = Alignment.BottomEnd){
+            Box( contentAlignment = Alignment.BottomEnd){
 
-             Image(
-                 painter = imageResource,
-                 contentDescription = null,
-                 modifier = Modifier
-                     .width(300.dp)
-                     .height(400.dp)
-                     .clip(RoundedCornerShape(15.dp))
-                     .clickable { onClick() },
-                 contentScale = ContentScale.Crop
-             )
+                Image(
+                    painter = imageResource,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .width(300.dp)
+                        .height(400.dp)
+                        .clip(RoundedCornerShape(15.dp))
+                        .clickable { onClick() },
+                    contentScale = ContentScale.Crop
+                )
 
-             SaveIcon(imageFile,
-                 modifier = Modifier
-                     .padding(start = 10.dp, end = 10.dp)
-                     .size(50.dp)
-                     .align(Alignment.BottomEnd))
+                SaveIcon(imageFile,
+                    modifier = Modifier
+                        .padding(start = 10.dp, end = 10.dp)
+                        .size(50.dp)
+                        .align(Alignment.BottomEnd))
 
-         }
+            }
 
 
         }
         else {
-
             Image(
                 painter = painterResource(R.drawable.photo_add_image),
                 contentDescription = null,
@@ -212,10 +224,20 @@ fun DayCompletedContent(onClick : () -> Unit,
                     .height(200.dp)
                     .clip(RoundedCornerShape(15.dp))
                     .clickable {
-                        cameraLauncher.launch(uri)
-                        task.photo = true
-                        databaseHelper.changeIsPhoto(task.id, task.photo)
-                               },
+                        val permissionCheckResult =
+                            ContextCompat.checkSelfPermission(
+                                context,
+                                android.Manifest.permission.CAMERA
+                            )
+
+                        if (permissionCheckResult == PackageManager.PERMISSION_GRANTED) {
+                            cameraLauncher.launch(uri)
+                            task.photo = true
+                            databaseHelper.changeIsPhoto(task.id, task.photo)
+                        } else {
+                            permissionLauncher.launch(android.Manifest.permission.CAMERA)
+                        }
+                    },
                 contentScale = ContentScale.Crop)
 
         }
@@ -384,6 +406,5 @@ private fun saveImageToGallery(imageFile: File?, context: Context) {
         }
     }
 }
-
 
 

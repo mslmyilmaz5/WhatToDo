@@ -6,8 +6,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.icu.text.SimpleDateFormat
-import android.net.Uri
-import android.os.Environment
 import android.provider.MediaStore
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -28,13 +26,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowBackIos
 import androidx.compose.material.icons.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Save
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -48,10 +43,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -64,7 +56,6 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import coil.compose.rememberImagePainter
 import androidx.core.content.FileProvider
-import coil.compose.ImagePainter
 import com.example.whattodo.MainActivity
 import com.example.whattodo.R
 import com.example.whattodo.getFilesContainingString
@@ -75,18 +66,15 @@ import java.util.Date
 import java.util.Locale
 import java.util.Objects
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
 
+@Composable
 fun DayCompletedScreen(databaseHelper: DatabaseHelper,
                        modifier: Modifier = Modifier) {
+
     var context = LocalContext.current
     var index by remember { mutableStateOf(0)}
-
     val allTasks = databaseHelper.getAllTasks(getCurrentDateTime())
     val completedTasks = allTasks.filter { it.isDone }
-
-
     var imageFile by remember { mutableStateOf(context.getFilesContainingString("WhatToDo#"+completedTasks[index].id+".jpg"))}
     var imageResource = if (imageFile.isEmpty()) null else rememberImagePainter(imageFile[0])
 
@@ -135,15 +123,12 @@ fun DayCompletedContent(onClick : () -> Unit,
     val context = LocalContext.current
     val file = context.createImageFile(task.id)
     var contentText by remember { mutableStateOf("" )}
-
     contentText = if (task.photo) "This is the picture for task ${task.title}"
     else "Add a photo for task ${task.title}"
-
     val uri = FileProvider.getUriForFile(
         Objects.requireNonNull(context),
         context.packageName + ".provider", file
     )
-
     val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { isTaken ->
         if (isTaken) {
             task.photo = true
@@ -267,7 +252,7 @@ fun SaveIcon(imageFile: List<File>,
         Icon(
             imageVector = Icons.Default.Save,
             contentDescription = "Forward",
-            tint =Color.White, // Customize the color as needed
+            tint =Color.White,
         )
     }
 }

@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -31,6 +32,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -46,6 +48,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
@@ -72,7 +77,6 @@ fun WhatToDoAppHabit(databaseHelper: DatabaseHelper,
         mutableStateOf(List(daysOfWeek.size) { false })
     }
     var notificationId by remember { mutableStateOf(Random.nextInt()) }
-
     var habits by remember { mutableStateOf(databaseHelper.getAllHabits().toMutableList()) }
     if (showDialog) {
         AlertDialog(
@@ -137,7 +141,8 @@ fun WhatToDoAppHabit(databaseHelper: DatabaseHelper,
                                     .background(
                                         color = if (selectedDays[index]) Color(0xffb0f7c3) else Color.Gray,
                                         shape = CircleShape
-                                    ).clip(CircleShape)
+                                    )
+                                    .clip(CircleShape)
                                     .clickable {
                                         selectedDays = selectedDays
                                             .toMutableList()
@@ -182,10 +187,10 @@ fun WhatToDoAppHabit(databaseHelper: DatabaseHelper,
     Column(
         modifier = modifier.fillMaxSize()
     ) {
-        Header(habits.size,"habits.",{showDialog = true})
+        Header({showDialog = true})
         Box(
             modifier = Modifier
-                .padding(start = 10.dp,end=10.dp)
+                .padding(start = 10.dp, end = 10.dp)
                 .weight(1f)
                 .background(
                     Color.White,
@@ -202,14 +207,11 @@ fun WhatToDoAppHabit(databaseHelper: DatabaseHelper,
                 habits = habits.filterNot { it == deletedHabit }.toMutableList()
                 databaseHelper.deleteHabit(deletedHabit.id)
                 databaseHelper.deleteTaskByHabitId(deletedHabit.id)
-
-
             },databaseHelper = databaseHelper)
         }
         Navbar(1)
     }
 }
-
 @Composable
 fun HabitContent(habitList : List<Habit>,
                  onDeleteHabit : (deletedHabit: Habit) -> Unit,
@@ -226,26 +228,22 @@ fun HabitContent(habitList : List<Habit>,
                 habit = habit,
                 onDelete = { deletedHabit ->
                     onDeleteHabit(deletedHabit)
-                }, databaseHelper = databaseHelper,
-                whatToDoNotificationService = WhatToDoNotificationService(context,"WhatToDo_Notification"))
+                }, databaseHelper = databaseHelper,)
         }
     }
 }
-
 @Composable
 fun HabitItem(
     habit: Habit,
     onDelete: (Habit) -> Unit,
     modifier: Modifier = Modifier,
     databaseHelper : DatabaseHelper,
-    whatToDoNotificationService: WhatToDoNotificationService
+
 ) {
     var expanded by remember { mutableStateOf(false) }
     val daysOfWeek = listOf("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
     var showDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
-    Log.d("Choose your habit days.",habit.days)
-    var text by remember {mutableStateOf("")}
     val context = LocalContext.current
 
     Card(
@@ -264,18 +262,22 @@ fun HabitItem(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color(0xFFF1F1F1))
-                .padding(15.dp)
+                .background(Color(0xFFCFCCCC))
+                .padding(12.dp)
         ) {
 
-            text = if (habit.reminder && habit.reminderTime != null) {
-                habit.reminderTime.toString()
+            Spacer(modifier = Modifier.width(8.dp))
+            val title = habit.title
+            val reminder = if (habit.reminder && habit.reminderTime != null) {
+                AnnotatedString(" (${habit.reminderTime.toString()})", spanStyle = SpanStyle(color = Color.Red, fontWeight = FontWeight.Normal))
             } else {
-                "OFF"
+                AnnotatedString("")
             }
-
             Text(
-                text = habit.title +  " (R.T : $text)",
+                text = buildAnnotatedString {
+                    append(title)
+                    append(reminder)
+                },
                 fontFamily = FontFamily.Monospace,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
@@ -353,7 +355,8 @@ fun HabitItem(
                                 showDeleteDialog = false
                                 Toast.makeText(context, "Habit deleted successfully.", Toast.LENGTH_SHORT).show()
                             },
-                            modifier = Modifier.padding(1.dp)
+                            modifier = Modifier
+                                .padding(1.dp)
                                 .size(120.dp, 48.dp)
                         ) {
                             Text("Delete")
@@ -362,7 +365,8 @@ fun HabitItem(
                     dismissButton = {
                         Button(
                             onClick = { showDeleteDialog = false },
-                            modifier = Modifier.padding(1.dp)
+                            modifier = Modifier
+                                .padding(1.dp)
                                 .size(120.dp, 48.dp)
                         ) {
                             Text("Cancel")
@@ -382,9 +386,6 @@ fun HabitItem(
                     tint = Color.Red.copy(0.7f)
 
                 )
-
-
-
             Icon(
                 imageVector = Icons.Default.ExpandMore,
                 tint = if (expanded) Color.Black else Color.Gray,
@@ -394,59 +395,69 @@ fun HabitItem(
                     .clickable { expanded = !expanded }
             )
         }
-        if(expanded){
-            Box(modifier = Modifier
-                .background(Color(0xFFF1F1F1))){
-                Divider(modifier = Modifier
-                    .padding(vertical = 8.dp))
+            if(expanded){
+                Box(modifier = Modifier
+                    .background(Color(0xFFCFCCCC))){
+                    Divider(modifier = Modifier
+                        .padding(vertical = 8.dp))
 
-            }
+                }
 
-            Column(modifier = Modifier
-                .fillMaxWidth()
-                .background(Color(0xFFF1F1F1))
-                .padding(start = 12.dp, bottom = 10.dp))
-            {
+                Column(modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0xFFCFCCCC))
+                    .padding(start = 12.dp, bottom = 10.dp))
+                {
 
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(text = "Adjust your habit days.")
-                Spacer(modifier = Modifier.height(16.dp))
-                Row {
-                    daysOfWeek.forEachIndexed { index, day ->
-                        var color by remember { mutableStateOf(if (habit.days[index] == '1') Color(0xffb0f7c3) else Color.Gray) }
-                        Box(
-                            modifier = Modifier
-                                .padding(end = 8.dp)
-                                .size(35.dp)
-                                .background(
-                                    color = color,
-                                    shape = CircleShape
-                                ).clip(CircleShape).clickable {
-                                    val updatedDays = buildString {
-                                        append(habit.days.substring(0, index))
-                                        append(if (habit.days[index] == '1') '0' else '1')
-                                        append(habit.days.substring(index + 1))
-                                    }
-                                    habit.days = updatedDays
-                                    databaseHelper.updateHabit(habit)
-                                    color = if (habit.days[index] == '1')  Color(0xffb0f7c3) else Color.Gray
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = day.first().toString(),
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold
-                            )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "Adjust your habbits.",
+                        color = Color.Black,
+                        fontSize = 13.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(5.dp)
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Row {
+                        daysOfWeek.forEachIndexed { index, day ->
+                            var color by remember { mutableStateOf(if (habit.days[index] == '1') Color(0xffb0f7c3) else Color.Gray) }
+                            Box(
+                                modifier = Modifier
+                                    .padding(end = 8.dp)
+                                    .size(32.dp)
+                                    .background(
+                                        color = color,
+                                        shape = CircleShape
+                                    )
+                                    .clip(CircleShape)
+                                    .clickable {
+                                        val updatedDays = buildString {
+                                            append(habit.days.substring(0, index))
+                                            append(if (habit.days[index] == '1') '0' else '1')
+                                            append(habit.days.substring(index + 1))
+                                        }
+                                        habit.days = updatedDays
+                                        databaseHelper.updateHabit(habit)
+                                        color =
+                                            if (habit.days[index] == '1') Color(0xffb0f7c3) else Color.Gray
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = day.first().toString(),
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
                     }
-                }
-                Spacer(modifier = Modifier.height(16.dp))
-                Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()){
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()){
 
+                    }
                 }
             }
-        }
     }
 }
 

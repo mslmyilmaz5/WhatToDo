@@ -11,7 +11,7 @@ The main goal of "WhatToDo" is to assist users in efficiently managing their dai
 
 ![image](https://github.com/mslmyilmaz5/WhatToDo/assets/70888420/f83307c6-11c7-4bc7-9d90-1e98e290f2f6)
 ![image](https://github.com/mslmyilmaz5/WhatToDo/assets/70888420/26543f6d-bf53-4580-a912-0584b1c2fd3b)
-![image](https://github.com/mslmyilmaz5/WhatToDo/assets/70888420/f39b1f5f-c162-4f50-b32d-6ea42a370bb0)
+
 
 
 ## Technologies Used
